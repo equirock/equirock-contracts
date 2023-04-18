@@ -38,7 +38,10 @@ mod tests {
         let mut app = mock_app();
         let cw_template_id = app.store_code(contract_template());
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            etf_token_code_id: 1,
+            etf_token_name: String::from("ER-Strategy-1"),
+        };
         let cw_template_contract_addr = app
             .instantiate_contract(
                 cw_template_id,

@@ -4,7 +4,10 @@ use cosmwasm_std::Addr;
 use crate::state::Config;
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub etf_token_code_id: u64,
+    pub etf_token_name: String,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -19,4 +22,7 @@ pub enum QueryMsg {
     GetConfig {},
 }
 
-// We define a custom struct for each query response
+#[cw_serde]
+pub struct MigrateMsg {}
+
+
