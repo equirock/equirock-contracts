@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::helpers::CwTemplateContract;
     use crate::msg::InstantiateMsg;
+    use crate::{helpers::CwTemplateContract, state::AssetInfo};
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -41,6 +41,9 @@ mod tests {
         let msg = InstantiateMsg {
             etf_token_code_id: 1,
             etf_token_name: String::from("ER-Strategy-1"),
+            deposit_asset: AssetInfo::NativeToken {
+                denom: String::from("usdt"),
+            },
         };
         let cw_template_contract_addr = app
             .instantiate_contract(
