@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Addr, Binary, CanonicalAddr, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
-    ReplyOn, Response, StdError, StdResult, SubMsg, WasmMsg,
+    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
@@ -10,7 +10,7 @@ use protobuf::Message;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Asset, AssetInfo, Config, CONFIG};
+use crate::state::{Asset, AssetInfo, Basket, Config, BASKET, CONFIG};
 
 use self::execute::{deposit, update_config};
 
@@ -31,13 +31,30 @@ pub fn instantiate(
         return Err(StdError::generic_err("Tokens not supported").into());
     }
 
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
     let config = Config {
         lp_token: CanonicalAddr::from(vec![]),
         deposit_asset: msg.deposit_asset,
+        pyth_contract_addr: msg.pyth_contract_addr,
     };
 
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
+
+    if let Some(non_zero_basket_asset) = msg
+        .basket
+        .assets
+        .iter()
+        .find(|b| b.asset.amount != Uint128::zero())
+    {
+        return Err(StdError::generic_err(format!(
+            "Non-zero basket asset {}",
+            non_zero_basket_asset.asset.info
+        ))
+        .into());
+    }
+
+    BASKET.save(deps.storage, &msg.basket)?;
 
     Ok(Response::new().add_submessage(SubMsg {
         // Create LP token
@@ -82,9 +99,9 @@ pub mod execute {
     use cosmwasm_std::{Addr, QueryRequest, WasmQuery};
     use cw721::{Cw721QueryMsg, OwnerOfResponse};
 
-    use crate::state::CONFIG;
+    use crate::state::{BASKET, CONFIG};
 
-    use super::*;
+    use super::{query::basket_value, *};
 
     pub fn update_config(
         deps: DepsMut,
@@ -117,26 +134,189 @@ pub mod execute {
 
         asset.assert_sent_native_token_balance(&info)?;
 
+        let basket = BASKET.load(deps.storage)?;
+
+        let basket_value = basket_value(&deps.querier, env, config, &basket)?;
+
         Ok(Response::new().add_attribute("action", "deposit"))
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query::config(deps)?),
+        QueryMsg::GetBasketIdealRatio {} => to_binary(&query::get_basket_ideal_ratio(deps, env)?),
     }
 }
 
 pub mod query {
 
-    use crate::state::{Config, CONFIG};
+    use cosmwasm_std::{Querier, QuerierWrapper, Uint128};
+    use pyth_sdk_cw::{query_price_feed, Price, PriceFeedResponse, PriceIdentifier};
+
+    use crate::{
+        msg::{FetchPriceResponse, GetBasketAssetIdealRatioResponse},
+        state::{Basket, BasketAsset, Config, CONFIG},
+    };
 
     use super::*;
 
     pub fn config(deps: Deps) -> StdResult<Config> {
         let config = CONFIG.load(deps.storage)?;
         Ok(config)
+    }
+
+    pub fn get_basket_ideal_ratio(
+        deps: Deps,
+        env: Env,
+    ) -> StdResult<Vec<GetBasketAssetIdealRatioResponse>> {
+        let config = CONFIG.load(deps.storage)?;
+        let basket = BASKET.load(deps.storage)?;
+
+        let ratios = basket_ideal_state(&deps.querier, env, &config, &basket)?;
+
+        Ok(basket
+            .assets
+            .iter()
+            .zip(ratios)
+            .map(|(basket_asset, ratio)| GetBasketAssetIdealRatioResponse {
+                basket_asset: basket_asset.to_owned(),
+                ratio,
+            })
+            .collect())
+    }
+
+    pub fn basket_ideal_state(
+        querier: &QuerierWrapper,
+        env: Env,
+        config: &Config,
+        basket: &Basket,
+    ) -> StdResult<Vec<Decimal>> {
+        let w_sum = basket
+            .assets
+            .iter()
+            .try_fold(Uint128::zero(), |acc, basket_asset| {
+                acc.checked_add(basket_asset.weight)
+            })?;
+
+        let basket_asset_ratios = basket
+            .assets
+            .iter()
+            .map(|basket_asset| basket_asset_ratio(querier, &env, &config, basket_asset, w_sum))
+            .collect::<StdResult<Vec<Decimal>>>()?;
+
+        Ok(basket_asset_ratios)
+    }
+
+    pub fn basket_asset_ratio(
+        querier: &QuerierWrapper,
+        env: &Env,
+        config: &Config,
+        basket_asset: &BasketAsset,
+        w_sum: Uint128,
+    ) -> StdResult<Decimal> {
+        let fetch_price = basket_asset_price(
+            querier,
+            env,
+            &config.pyth_contract_addr,
+            basket_asset.pyth_price_feed,
+        )?;
+
+        let price = pyth_price(fetch_price.current_price)?;
+
+        let basket_asset_ratio = Decimal::from_ratio(
+            basket_asset.weight,
+            w_sum, // w_sum.checked_mul(Uint128::from(fetch_price.current_price.price as u128))?,
+        )
+        .checked_div(price)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+
+        Ok(basket_asset_ratio)
+    }
+
+    pub fn basket_value(
+        querier: &QuerierWrapper,
+        env: Env,
+        config: Config,
+        basket: &Basket,
+    ) -> StdResult<Decimal> {
+        let basket_asset_values = basket
+            .assets
+            .iter()
+            .map(|basket_asset| basket_asset_value(querier, &env, &config, basket_asset))
+            .collect::<StdResult<Vec<Decimal>>>()?;
+
+        let sum = basket_asset_values
+            .iter()
+            .try_fold(Decimal::zero(), |acc, value| acc.checked_add(*value))?;
+
+        Ok(sum)
+    }
+
+    pub fn pyth_price(price: Price) -> StdResult<Decimal> {
+        let price_price = Uint128::from(price.price as u128);
+        let price_expo = price.expo;
+
+        if price_expo < 0 {
+            Ok(Decimal::from_ratio(
+                price_price,
+                Uint128::from(10u128).checked_mul(Uint128::from(price_expo.abs() as u128))?,
+            ))
+        } else if price_expo == 0 {
+            Ok(Decimal::raw(price_price.into()))
+        } else {
+            Ok(Decimal::raw(
+                (price_price.checked_mul(
+                    Uint128::from(10u128).checked_mul(Uint128::from(price_expo as u128))?,
+                )?)
+                .into(),
+            ))
+        }
+    }
+
+    pub fn basket_asset_value(
+        querier: &QuerierWrapper,
+        env: &Env,
+        config: &Config,
+        basket_asset: &BasketAsset,
+    ) -> StdResult<Decimal> {
+        let fetch_price = basket_asset_price(
+            querier,
+            env,
+            &config.pyth_contract_addr,
+            basket_asset.pyth_price_feed,
+        )?;
+        let price = pyth_price(fetch_price.current_price)?;
+
+        let basket_asset_value =
+            price.checked_mul(Decimal::raw(basket_asset.asset.amount.into()))?;
+
+        Ok(basket_asset_value)
+    }
+
+    pub fn basket_asset_price(
+        querier: &QuerierWrapper,
+        env: &Env,
+        pyth_contract_addr: &Addr,
+        price_feed_id: PriceIdentifier,
+    ) -> StdResult<FetchPriceResponse> {
+        let price_feed_response: PriceFeedResponse =
+            query_price_feed(querier, pyth_contract_addr.to_owned(), price_feed_id)?;
+        let price_feed = price_feed_response.price_feed;
+
+        let current_price = price_feed
+            .get_price_no_older_than(env.block.time.seconds() as i64, 60)
+            .ok_or_else(|| StdError::not_found("Current price is not available"))?;
+
+        let ema_price = price_feed
+            .get_ema_price_no_older_than(env.block.time.seconds() as i64, 60)
+            .ok_or_else(|| StdError::not_found("EMA price is not available"))?;
+
+        Ok(FetchPriceResponse {
+            current_price,
+            ema_price,
+        })
     }
 }
 
@@ -169,13 +349,74 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg(test)]
 mod tests {
 
+    use std::str::FromStr;
+    use std::time::Duration;
+
+    use crate::contract::query::basket_asset_price;
+    use crate::msg::GetBasketAssetIdealRatioResponse;
+    use crate::state::BasketAsset;
+
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, from_binary, Uint128};
+    use cosmwasm_std::testing::{
+        mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
+    };
+    use cosmwasm_std::{
+        coin, coins, from_binary, Coin, OwnedDeps, QuerierResult, SystemError, SystemResult,
+        Timestamp, Uint128, WasmQuery,
+    };
+    use pyth_sdk_cw::testing::MockPyth;
+    use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
+
+    const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
+    const PRICE_ID_INJ: &str = "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3";
+    const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3";
+
+    fn setup_test(
+        mock_pyth: &MockPyth,
+        block_timestamp: UnixTimestamp,
+    ) -> (OwnedDeps<MockStorage, MockApi, MockQuerier>, Env) {
+        let mut dependencies = mock_dependencies();
+
+        let mock_pyth_copy = (*mock_pyth).clone();
+        dependencies
+            .querier
+            .update_wasm(move |x| handle_wasm_query(&mock_pyth_copy, x));
+
+        let mut env = mock_env();
+        env.block.time = Timestamp::from_seconds(u64::try_from(block_timestamp).unwrap());
+
+        (dependencies, env)
+    }
+
+    fn handle_wasm_query(pyth: &MockPyth, wasm_query: &WasmQuery) -> QuerierResult {
+        match wasm_query {
+            WasmQuery::Smart { contract_addr, msg } if *contract_addr == PYTH_CONTRACT_ADDR => {
+                pyth.handle_wasm_query(msg)
+            }
+            WasmQuery::Smart { contract_addr, .. } => {
+                SystemResult::Err(SystemError::NoSuchContract {
+                    addr: contract_addr.clone(),
+                })
+            }
+            WasmQuery::Raw { contract_addr, .. } => {
+                SystemResult::Err(SystemError::NoSuchContract {
+                    addr: contract_addr.clone(),
+                })
+            }
+            WasmQuery::ContractInfo { contract_addr, .. } => {
+                SystemResult::Err(SystemError::NoSuchContract {
+                    addr: contract_addr.clone(),
+                })
+            }
+            _ => unreachable!(),
+        }
+    }
 
     #[test]
     fn proper_initialization() {
-        let mut deps = mock_dependencies();
+        let current_unix_time = 10_000_000;
+        let mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+        let (mut deps, _env) = setup_test(&mock_pyth, current_unix_time);
 
         let msg = InstantiateMsg {
             etf_token_code_id: 1,
@@ -183,6 +424,8 @@ mod tests {
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
             },
+            pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
+            basket: Basket { assets: vec![] },
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
@@ -205,6 +448,8 @@ mod tests {
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
             },
+            pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
+            basket: Basket { assets: vec![] },
         };
         let info = mock_info("creator", &vec![]);
 
@@ -234,6 +479,8 @@ mod tests {
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
             },
+            pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
+            basket: Basket { assets: vec![] },
         };
         let info = mock_info("creator", &vec![]);
 
@@ -262,6 +509,8 @@ mod tests {
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
             },
+            pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
+            basket: Basket { assets: vec![] },
         };
         let info = mock_info("creator", &vec![]);
 
@@ -278,5 +527,104 @@ mod tests {
         };
 
         let res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
+    }
+
+    #[test]
+    fn query_basket_prices() {
+        let current_unix_time = 10_000_000;
+        let mut mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+        let price_feed_inj = PriceFeed::new(
+            PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+            Price {
+                price: 100,
+                conf: 10,
+                expo: -1,
+                publish_time: current_unix_time,
+            },
+            Price {
+                price: 80,
+                conf: 20,
+                expo: -1,
+                publish_time: current_unix_time,
+            },
+        );
+        let price_feed_atom = PriceFeed::new(
+            PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+            Price {
+                price: 200,
+                conf: 20,
+                expo: -1,
+                publish_time: current_unix_time,
+            },
+            Price {
+                price: 110,
+                conf: 20,
+                expo: -1,
+                publish_time: current_unix_time,
+            },
+        );
+
+        mock_pyth.add_feed(price_feed_inj);
+        mock_pyth.add_feed(price_feed_atom);
+
+        let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
+
+        let msg = InstantiateMsg {
+            etf_token_code_id: 1,
+            etf_token_name: String::from("ER-Strategy-1"),
+            deposit_asset: AssetInfo::NativeToken {
+                denom: String::from("usdt"),
+            },
+            pyth_contract_addr: Addr::unchecked(PYTH_CONTRACT_ADDR),
+            basket: Basket {
+                assets: vec![
+                    BasketAsset {
+                        asset: Asset {
+                            info: {
+                                AssetInfo::NativeToken {
+                                    denom: String::from("inj"),
+                                }
+                            },
+                            amount: Uint128::zero(),
+                        },
+                        pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+                        weight: Uint128::from(1u128),
+                    },
+                    BasketAsset {
+                        asset: Asset {
+                            info: {
+                                AssetInfo::NativeToken {
+                                    denom: String::from("atom"),
+                                }
+                            },
+                            amount: Uint128::zero(),
+                        },
+                        pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+                        weight: Uint128::from(1u128),
+                    },
+                ],
+            },
+        };
+        let info = mock_info("creator", &vec![]);
+
+        let res = instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+
+        assert_eq!(1, res.messages.len());
+
+        let res = query(
+            deps.as_ref(),
+            env.to_owned(),
+            QueryMsg::GetBasketIdealRatio {},
+        )
+        .unwrap();
+        let value: Vec<GetBasketAssetIdealRatioResponse> = from_binary(&res).unwrap();
+
+        assert_eq!(
+            value.into_iter().map(|a| a.ratio).collect::<Vec<Decimal>>(),
+            vec![
+                Decimal::from_str("0.05").unwrap(),
+                Decimal::from_str("0.025").unwrap()
+            ]
+        );
     }
 }

@@ -1,9 +1,12 @@
 #[cfg(test)]
 mod tests {
     use crate::msg::InstantiateMsg;
+    use crate::state::Basket;
     use crate::{helpers::CwTemplateContract, state::AssetInfo};
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+
+    const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -44,6 +47,8 @@ mod tests {
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
             },
+            basket: Basket { assets: vec![] },
+            pyth_contract_addr: Addr::unchecked(PYTH_CONTRACT_ADDR),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(
