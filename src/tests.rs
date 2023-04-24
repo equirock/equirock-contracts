@@ -47,17 +47,18 @@ fn handle_wasm_query(pyth: &MockPyth, wasm_query: &WasmQuery) -> QuerierResult {
         WasmQuery::Smart { contract_addr, msg } if *contract_addr == PYTH_CONTRACT_ADDR => {
             pyth.handle_wasm_query(msg)
         }
-        WasmQuery::Smart { contract_addr, msg } if *contract_addr == LP_TOKEN_ADDR => {
-            SystemResult::Ok(
-                to_binary(&TokenInfoResponse {
-                    decimals: 6u8,
-                    name: format!("LP"),
-                    symbol: format!("LP"),
-                    total_supply: Uint128::from(100u128),
-                })
-                .into(),
-            )
-        }
+        WasmQuery::Smart {
+            contract_addr,
+            msg: _,
+        } if *contract_addr == LP_TOKEN_ADDR => SystemResult::Ok(
+            to_binary(&TokenInfoResponse {
+                decimals: 6u8,
+                name: format!("LP"),
+                symbol: format!("LP"),
+                total_supply: Uint128::from(100u128),
+            })
+            .into(),
+        ),
         WasmQuery::Smart { contract_addr, .. } => SystemResult::Err(SystemError::NoSuchContract {
             addr: contract_addr.clone(),
         }),
@@ -95,7 +96,7 @@ fn proper_initialization() {
     assert_eq!(1, res.messages.len());
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();
-    let value: Config = from_binary(&res).unwrap();
+    let _value: Config = from_binary(&res).unwrap();
 }
 
 #[test]
@@ -114,7 +115,7 @@ fn deposit_incorrect_denom() {
     };
     let info = mock_info("creator", &vec![]);
 
-    let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let auth_info = mock_info("anyone", &coins(1, "not-usdt"));
     let msg = ExecuteMsg::Deposit {
@@ -145,7 +146,7 @@ fn deposit_different_than_in_asset() {
     };
     let info = mock_info("creator", &vec![]);
 
-    let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let auth_info = mock_info("anyone", &vec![coin(1, "usdt")]);
     let msg = ExecuteMsg::Deposit {
@@ -177,7 +178,7 @@ fn deposit_correct_denom() {
     };
     let info = mock_info("creator", &vec![]);
 
-    let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     CONFIG
         .update(
@@ -200,7 +201,7 @@ fn deposit_correct_denom() {
         },
     };
 
-    let res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
+    let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
 }
 
 #[test]

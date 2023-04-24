@@ -88,7 +88,7 @@ mod tests {
 
             let msg = ExecuteMsg::UpdateConfig {};
             let cosmos_msg = cw_template_contract.call(msg).unwrap();
-            let res = app.execute(Addr::unchecked(USER), cosmos_msg.clone());
+            let _res = app.execute(Addr::unchecked(USER), cosmos_msg.clone());
 
             app.execute(Addr::unchecked(ADMIN), cosmos_msg).unwrap();
         }
