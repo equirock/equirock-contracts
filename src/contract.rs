@@ -13,7 +13,7 @@ use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::query::{config, get_basket_ideal_ratio};
-use crate::reply::{handle_lp_init, INSTANTIATE_REPLY_ID};
+use crate::reply::{handle_lp_init, handle_order, ATOMIC_ORDER_REPLY_ID, INSTANTIATE_REPLY_ID};
 use crate::state::{Config, BASKET, CONFIG};
 
 // version info for migration info
@@ -111,6 +111,7 @@ pub fn reply(
 ) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     match msg.id {
         INSTANTIATE_REPLY_ID => handle_lp_init(deps, env, msg),
+        ATOMIC_ORDER_REPLY_ID => handle_order(deps, env, msg),
         _ => Err(ContractError::UnrecognisedReply(msg.id)),
     }
 }

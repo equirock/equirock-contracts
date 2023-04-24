@@ -49,12 +49,13 @@ pub fn sell_inj_spot_order(
 
 pub fn buy_inj_spot_order(
     market_id: &MarketId,
+    price: FPDecimal,
     quantity: FPDecimal,
     subaccount_id: &SubaccountId,
     sender: &Addr,
 ) -> CosmosMsg<InjectiveMsgWrapper> {
     let order = SpotOrder::new(
-        FPDecimal::MAX,
+        price,
         quantity,
         OrderType::BuyAtomic,
         market_id,
@@ -91,12 +92,13 @@ pub fn deposit(
     let _total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
 
     let contract = env.contract.address;
-    println!("{:}", contract);
+
     let subaccount_id = get_default_subaccount_id_for_checked_address(&contract);
     let order_message = SubMsg::reply_on_success(
         buy_inj_spot_order(
             &MarketId::new("0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe")?,
-            FPDecimal::from_str("1853000000000000000.000000000000000000")?,
+            FPDecimal::from_str("0.000000000006743000")?,
+            FPDecimal::from_str("14000000000000000.000000000000000000")?,
             &subaccount_id,
             &contract,
         ),
