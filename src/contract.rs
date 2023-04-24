@@ -1,3 +1,4 @@
+use astroport::asset::AssetInfo;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -10,7 +11,7 @@ use protobuf::Message;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Asset, AssetInfo, Basket, Config, BASKET, CONFIG};
+use crate::state::{Basket, Config, BASKET, CONFIG};
 
 use self::execute::{deposit, update_config};
 
@@ -96,10 +97,14 @@ pub fn execute(
 }
 
 pub mod execute {
+    use astroport::{asset::Asset, pair::ExecuteMsg::Swap};
     use cosmwasm_std::{Addr, QueryRequest, WasmQuery};
     use cw721::{Cw721QueryMsg, OwnerOfResponse};
 
-    use crate::state::{BASKET, CONFIG};
+    use crate::{
+        querier::query_token_info,
+        state::{BASKET, CONFIG},
+    };
 
     use super::{query::basket_value, *};
 
@@ -114,6 +119,18 @@ pub mod execute {
         })?;
 
         Ok(Response::new().add_attribute("action", "update_config"))
+    }
+
+    pub fn create_astroport_swap_msg() -> StdResult<()> {
+        // Swap {
+        //     offer_asset: (),
+        //     ask_asset_info: (),
+        //     belief_price: (),
+        //     max_spread: (),
+        //     to: (),
+        // };
+
+        Ok(())
     }
 
     pub fn deposit(
@@ -136,7 +153,10 @@ pub mod execute {
 
         let basket = BASKET.load(deps.storage)?;
 
-        let basket_value = basket_value(&deps.querier, env, config, &basket)?;
+        let basket_value = basket_value(&deps.querier, env, &config, &basket)?;
+
+        let liquidity_token = deps.api.addr_humanize(&config.lp_token)?;
+        let total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
 
         Ok(Response::new().add_attribute("action", "deposit"))
     }
@@ -238,7 +258,7 @@ pub mod query {
     pub fn basket_value(
         querier: &QuerierWrapper,
         env: Env,
-        config: Config,
+        config: &Config,
         basket: &Basket,
     ) -> StdResult<Decimal> {
         let basket_asset_values = basket
@@ -357,19 +377,24 @@ mod tests {
     use crate::state::BasketAsset;
 
     use super::*;
+    use astroport::asset::Asset;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, coins, from_binary, Coin, OwnedDeps, QuerierResult, SystemError, SystemResult,
+        coin, coins, from_binary, Api, Coin, OwnedDeps, QuerierResult, SystemError, SystemResult,
         Timestamp, Uint128, WasmQuery,
     };
+    use cw20::TokenInfoResponse;
     use pyth_sdk_cw::testing::MockPyth;
     use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
 
     const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
     const PRICE_ID_INJ: &str = "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3";
     const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3";
+
+    const LP_TOKEN_ADDR: &str = "lp-token-0001";
+    const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
 
     fn setup_test(
         mock_pyth: &MockPyth,
@@ -392,6 +417,17 @@ mod tests {
         match wasm_query {
             WasmQuery::Smart { contract_addr, msg } if *contract_addr == PYTH_CONTRACT_ADDR => {
                 pyth.handle_wasm_query(msg)
+            }
+            WasmQuery::Smart { contract_addr, msg } if *contract_addr == LP_TOKEN_ADDR => {
+                SystemResult::Ok(
+                    to_binary(&TokenInfoResponse {
+                        decimals: 6u8,
+                        name: format!("LP"),
+                        symbol: format!("LP"),
+                        total_supply: Uint128::from(100u128),
+                    })
+                    .into(),
+                )
             }
             WasmQuery::Smart { contract_addr, .. } => {
                 SystemResult::Err(SystemError::NoSuchContract {
@@ -469,7 +505,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Native token balance mismatch")]
+    #[should_panic(
+        expected = "Native token balance mismatch between the argument and the transferred"
+    )]
     fn deposit_different_than_in_asset() {
         let mut deps = mock_dependencies();
 
@@ -501,13 +539,15 @@ mod tests {
 
     #[test]
     fn deposit_correct_denom() {
-        let mut deps = mock_dependencies();
+        let current_unix_time = 10_000_000;
+        let mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+        let (mut deps, _env) = setup_test(&mock_pyth, current_unix_time);
 
         let msg = InstantiateMsg {
             etf_token_code_id: 1,
             etf_token_name: String::from("ER-Strategy-1"),
             deposit_asset: AssetInfo::NativeToken {
-                denom: String::from("usdt"),
+                denom: USDT.to_owned(),
             },
             pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
             basket: Basket { assets: vec![] },
@@ -516,12 +556,23 @@ mod tests {
 
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let auth_info = mock_info("anyone", &coins(1, "usdt"));
+        CONFIG
+            .update(
+                &mut deps.storage,
+                |mut config| -> Result<_, ContractError> {
+                    let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
+                    config.lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
+                    Ok(config)
+                },
+            )
+            .unwrap();
+
+        let auth_info = mock_info("anyone", &coins(1, USDT.to_owned()));
         let msg = ExecuteMsg::Deposit {
             asset: Asset {
                 amount: Uint128::from(1u128),
                 info: AssetInfo::NativeToken {
-                    denom: String::from("usdt"),
+                    denom: USDT.to_owned(),
                 },
             },
         };

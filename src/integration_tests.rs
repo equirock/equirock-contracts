@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use crate::helpers::CwTemplateContract;
     use crate::msg::InstantiateMsg;
     use crate::state::Basket;
-    use crate::{helpers::CwTemplateContract, state::AssetInfo};
+    use astroport::asset::AssetInfo;
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 

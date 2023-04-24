@@ -1,8 +1,9 @@
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal};
 use pyth_sdk_cw::Price;
 
-use crate::state::{Asset, AssetInfo, Basket, BasketAsset, Config};
+use crate::state::{Basket, BasketAsset, Config};
 
 #[cw_serde]
 pub struct InstantiateMsg {
