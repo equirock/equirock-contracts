@@ -81,7 +81,7 @@ pub fn basket_asset_ratio(
 
 pub fn basket_value(
     querier: &QuerierWrapper,
-    env: Env,
+    env: &Env,
     config: &Config,
     basket: &Basket,
 ) -> StdResult<Decimal> {

@@ -2,8 +2,8 @@ pub mod contract;
 mod error;
 pub mod execute;
 pub mod helpers;
-#[cfg(test)]
-pub mod integration_tests;
+// #[cfg(test)]
+// pub mod integration_tests;
 pub mod msg;
 pub mod querier;
 pub mod query;

@@ -1,9 +1,17 @@
 use cosmwasm_std::{DepsMut, Env, Reply, Response, StdError, StdResult};
+use injective_cosmwasm::InjectiveMsgWrapper;
 use protobuf::Message;
 
 use crate::{response::MsgInstantiateContractResponse, state::CONFIG, ContractError};
 
-pub fn handle_lp_init(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub const INSTANTIATE_REPLY_ID: u64 = 1;
+pub const ATOMIC_ORDER_REPLY_ID: u64 = 2;
+
+pub fn handle_lp_init(
+    deps: DepsMut,
+    _env: Env,
+    msg: Reply,
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     let data = msg.result.unwrap().data.unwrap();
     let res: MsgInstantiateContractResponse =
         Message::parse_from_bytes(data.as_slice()).map_err(|_| {

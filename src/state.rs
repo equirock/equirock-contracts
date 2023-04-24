@@ -1,4 +1,5 @@
 use astroport::asset::{Asset, AssetInfo};
+use injective_cosmwasm::MarketId;
 use pyth_sdk_cw::PriceIdentifier;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ pub struct BasketAsset {
     pub asset: Asset,
     pub weight: Uint128,
     pub pyth_price_feed: PriceIdentifier,
+    pub spot_market_id: MarketId,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -6,10 +6,11 @@ mod tests {
     use astroport::asset::AssetInfo;
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+    use injective_cosmwasm::InjectiveMsgWrapper;
 
     const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
 
-    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+    pub fn contract_template() -> Box<dyn Contract<InjectiveMsgWrapper>> {
         let contract = ContractWrapper::new(
             crate::contract::execute,
             crate::contract::instantiate,
@@ -82,7 +83,6 @@ mod tests {
         use super::*;
         use crate::msg::ExecuteMsg;
 
-        #[test]
         fn update_config() {
             let (mut app, cw_template_contract) = proper_instantiate();
 

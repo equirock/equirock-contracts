@@ -7,19 +7,18 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
+use injective_cosmwasm::InjectiveMsgWrapper;
 
 use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::query::{config, get_basket_ideal_ratio};
-use crate::reply::handle_lp_init;
+use crate::reply::{handle_lp_init, INSTANTIATE_REPLY_ID};
 use crate::state::{Config, BASKET, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:equirock-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const INSTANTIATE_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -27,7 +26,7 @@ pub fn instantiate(
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     if let AssetInfo::Token { .. } = &msg.deposit_asset {
         return Err(StdError::generic_err("Tokens not supported").into());
     }
@@ -89,7 +88,7 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
@@ -105,7 +104,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(
+    deps: DepsMut,
+    env: Env,
+    msg: Reply,
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     match msg.id {
         INSTANTIATE_REPLY_ID => handle_lp_init(deps, env, msg),
         _ => Err(ContractError::UnrecognisedReply(msg.id)),

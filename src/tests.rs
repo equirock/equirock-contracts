@@ -15,6 +15,7 @@ use cosmwasm_std::{
     SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::TokenInfoResponse;
+use injective_cosmwasm::MarketId;
 use pyth_sdk_cw::testing::MockPyth;
 use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
 
@@ -24,6 +25,9 @@ const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b
 
 const LP_TOKEN_ADDR: &str = "lp-token-0001";
 const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
+
+const INJUSDT_MARKET_ID: &str =
+    "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe";
 
 fn setup_test(
     mock_pyth: &MockPyth,
@@ -38,6 +42,7 @@ fn setup_test(
 
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(u64::try_from(block_timestamp).unwrap());
+    env.contract.address = Addr::unchecked("inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87");
 
     (dependencies, env)
 }
@@ -165,7 +170,7 @@ fn deposit_different_than_in_asset() {
 fn deposit_correct_denom() {
     let current_unix_time = 10_000_000;
     let mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
-    let (mut deps, _env) = setup_test(&mock_pyth, current_unix_time);
+    let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
 
     let msg = InstantiateMsg {
         etf_token_code_id: 1,
@@ -178,7 +183,7 @@ fn deposit_correct_denom() {
     };
     let info = mock_info("creator", &vec![]);
 
-    let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let _res = instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
     CONFIG
         .update(
@@ -201,7 +206,7 @@ fn deposit_correct_denom() {
         },
     };
 
-    let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
+    let _res = execute(deps.as_mut(), env.to_owned(), auth_info, msg).unwrap();
 }
 
 #[test]
@@ -264,6 +269,7 @@ fn query_basket_prices() {
                     },
                     pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
                     weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(INJUSDT_MARKET_ID).unwrap(),
                 },
                 BasketAsset {
                     asset: Asset {
@@ -276,6 +282,7 @@ fn query_basket_prices() {
                     },
                     pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
                     weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(INJUSDT_MARKET_ID).unwrap(),
                 },
             ],
         },
