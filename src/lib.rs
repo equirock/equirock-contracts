@@ -6,5 +6,7 @@ pub mod msg;
 pub mod querier;
 pub mod response;
 pub mod state;
+#[cfg(test)]
+pub mod tests;
 
 pub use crate::error::ContractError;

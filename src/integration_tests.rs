@@ -14,6 +14,16 @@ mod tests {
             crate::contract::execute,
             crate::contract::instantiate,
             crate::contract::query,
+        )
+        .with_reply(crate::contract::reply);
+        Box::new(contract)
+    }
+
+    pub fn cw20_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            cw20_base::contract::execute,
+            cw20_base::contract::instantiate,
+            cw20_base::contract::query,
         );
         Box::new(contract)
     }
@@ -40,10 +50,11 @@ mod tests {
 
     fn proper_instantiate() -> (App, CwTemplateContract) {
         let mut app = mock_app();
-        let cw_template_id = app.store_code(contract_template());
+        let equirock_template_id = app.store_code(contract_template());
+        let cw20_code_id = app.store_code(cw20_template());
 
         let msg = InstantiateMsg {
-            etf_token_code_id: 1,
+            etf_token_code_id: cw20_code_id,
             etf_token_name: String::from("ER-Strategy-1"),
             deposit_asset: AssetInfo::NativeToken {
                 denom: String::from("usdt"),
@@ -53,7 +64,7 @@ mod tests {
         };
         let cw_template_contract_addr = app
             .instantiate_contract(
-                cw_template_id,
+                equirock_template_id,
                 Addr::unchecked(ADMIN),
                 &msg,
                 &[],
