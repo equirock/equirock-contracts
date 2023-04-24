@@ -7,12 +7,12 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
-use protobuf::Message;
 
 use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::query::{config, get_basket_ideal_ratio};
+use crate::reply::handle_lp_init;
 use crate::state::{Config, BASKET, CONFIG};
 
 // version info for migration info
@@ -105,23 +105,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    use crate::response::MsgInstantiateContractResponse;
-
-    let data = msg.result.unwrap().data.unwrap();
-    let res: MsgInstantiateContractResponse =
-        Message::parse_from_bytes(data.as_slice()).map_err(|_| {
-            StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
-        })?;
-    let liquidity_token = res.address;
-
-    let api = deps.api;
-    CONFIG.update(deps.storage, |mut config| -> StdResult<_> {
-        config.lp_token = api.addr_canonicalize(&liquidity_token)?;
-        Ok(config)
-    })?;
-
-    Ok(Response::new().add_attribute("liquidity_token_addr", liquidity_token))
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        INSTANTIATE_REPLY_ID => handle_lp_init(deps, env, msg),
+        _ => Err(ContractError::UnrecognisedReply(msg.id)),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
