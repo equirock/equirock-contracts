@@ -1,4 +1,4 @@
-CONTRACT_ADDR="inj1td0k39kaz5q66fwpe3elnpkkwxrnrz3m6u29rp"
+CONTRACT_ADDR="inj192em9pw07hvywzl4qm8weqlhkmwtpum6c2j5ht"
 
 ADMIN=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
 USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"

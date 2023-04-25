@@ -16,3 +16,8 @@
 .idea
 
 artifacts
+
+tarpaulin-report.*
+
+packages/*/schema
+contracts/*/schema
