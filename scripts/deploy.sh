@@ -20,7 +20,31 @@ INSTANTIATE_MSG=$(cat <<-END
         },
         "pyth_contract_addr": "inj1z60tg0tekdzcasenhuuwq3htjcd5slmgf7gpez",
         "basket": {
-          "assets": []
+          "assets": [{
+            "asset": {
+              "info": {
+                "native_token": {
+                  "denom": "inj"
+                }
+              },
+              "amount": "0"
+            },
+            "weight": "1",
+            "pyth_price_feed": "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",
+            "spot_market_id": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"
+          },{
+            "asset": {
+              "info": {
+                "native_token": {
+                  "denom": "inj"
+                }
+              },
+              "amount": "0"
+            },
+            "weight": "2",
+            "pyth_price_feed": "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",
+            "spot_market_id": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"
+          }]
         }
     }
 END

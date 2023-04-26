@@ -1,30 +1,30 @@
 use std::str::FromStr;
 
 use astroport::asset::{Asset, AssetInfo};
-use cosmwasm_std::{Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, SubMsg};
+use cosmwasm_std::{
+    Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, StdError, SubMsg,
+};
 use injective_cosmwasm::{
     create_spot_market_order_msg, get_default_subaccount_id_for_checked_address,
-    InjectiveMsgWrapper, MarketId, OrderType, SpotOrder, SubaccountId,
+    InjectiveMsgWrapper, InjectiveQuerier, InjectiveQueryWrapper, MarketId, OrderType, SpotOrder,
+    SubaccountId,
 };
 use injective_math::FPDecimal;
 
 use crate::{
     querier::query_token_info,
-    query::basket_value,
+    query::{basket_value, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
-    state::{BASKET, CONFIG},
-    ContractError,
+    state::{BASKET, CONFIG, REPLY_CACHE},
 };
 
 pub fn update_config(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     _info: MessageInfo,
     _new_owner: Option<Addr>,
     _new_dens_addr: Option<Addr>,
-) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
-    let _config = CONFIG.update(deps.storage, |config| -> Result<_, ContractError> {
-        Ok(config)
-    })?;
+) -> Result<Response<InjectiveMsgWrapper>, StdError> {
+    let _config = CONFIG.update(deps.storage, |config| -> Result<_, StdError> { Ok(config) })?;
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
@@ -67,11 +67,11 @@ pub fn buy_inj_spot_order(
 }
 
 pub fn deposit(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     asset: Asset,
-) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
 
     if let AssetInfo::NativeToken { denom } = &config.deposit_asset {
@@ -84,6 +84,8 @@ pub fn deposit(
 
     asset.assert_sent_native_token_balance(&info)?;
 
+    REPLY_CACHE.save(deps.storage, &asset)?;
+
     let basket = BASKET.load(deps.storage)?;
 
     let _basket_value = basket_value(&deps.querier, &env, &config, &basket)?;
@@ -91,7 +93,24 @@ pub fn deposit(
     let liquidity_token = deps.api.addr_humanize(&config.lp_token)?;
     let _total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
 
-    let contract = env.contract.address;
+    let contract = &env.contract.address;
+
+    let ratios = get_basket_ideal_ratio(deps.as_ref(), &env)?;
+
+    let _response: Response<InjectiveMsgWrapper> = Response::new();
+
+    let _deposit_without_fee =
+        Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
+
+    for _ratio in ratios {}
+
+    let _injective_querier = InjectiveQuerier::new(&deps.querier);
+
+    // let spot_market = injective_querier.query_spot_market(&basket.assets[0].spot_market_id)?;
+
+    // if let Some(market) = spot_market.market {
+    //     market.min_quantity_tick_size;
+    // }
 
     let subaccount_id = get_default_subaccount_id_for_checked_address(&contract);
     let order_message = SubMsg::reply_on_success(
@@ -100,7 +119,7 @@ pub fn deposit(
             FPDecimal::from_str("0.000000000007743000")?,
             FPDecimal::from_str("14000000000000000.000000000000000000")?,
             &subaccount_id,
-            &contract,
+            contract,
         ),
         ATOMIC_ORDER_REPLY_ID,
     );

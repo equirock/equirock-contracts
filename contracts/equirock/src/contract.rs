@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
-use injective_cosmwasm::InjectiveMsgWrapper;
+use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
 use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
@@ -22,7 +22,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
@@ -84,11 +84,11 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     match msg {
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
@@ -96,10 +96,10 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<InjectiveQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&config(deps)?),
-        QueryMsg::GetBasketIdealRatio {} => to_binary(&get_basket_ideal_ratio(deps, env)?),
+        QueryMsg::GetBasketIdealRatio {} => to_binary(&get_basket_ideal_ratio(deps, &env)?),
     }
 }
 

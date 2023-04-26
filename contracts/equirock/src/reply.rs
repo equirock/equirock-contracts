@@ -66,6 +66,8 @@ pub fn handle_order(
     let price = FPDecimal::from_str(&trade_data.price)? / dec_scale_factor;
     let fee = FPDecimal::from_str(&trade_data.fee)? / dec_scale_factor;
 
+    let _paid = quantity * price + fee;
+
     // let config = STATE.load(deps.storage)?;
     // let contract_address = env.contract.address;
     // let subaccount_id = config.contract_subaccount_id;

@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -7,15 +8,15 @@ use crate::state::{Basket, BasketAsset, Config, CONFIG};
 use crate::ContractError;
 
 use astroport::asset::{Asset, AssetInfo};
-use cosmwasm_std::testing::{
-    mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
-};
+use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
     coin, coins, from_binary, to_binary, Addr, Api, Coin, Decimal, Env, OwnedDeps, QuerierResult,
     SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::TokenInfoResponse;
-use injective_cosmwasm::MarketId;
+use injective_cosmwasm::{
+    mock_dependencies, HandlesSmartQuery, InjectiveQueryWrapper, MarketId, WasmMockQuerier,
+};
 use pyth_sdk_cw::testing::MockPyth;
 use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
 
@@ -29,16 +30,64 @@ const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
 const INJUSDT_MARKET_ID: &str =
     "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe";
 
+pub fn inj_mock_deps(
+    mock_pyth: &MockPyth,
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper> {
+    let mut custom_querier: WasmMockQuerier = WasmMockQuerier::new();
+    custom_querier.smart_query_handler = Some(Box::new(create_smart_query_handler(mock_pyth)));
+    OwnedDeps {
+        api: MockApi::default(),
+        storage: MockStorage::default(),
+        querier: custom_querier,
+        custom_query_type: PhantomData::default(),
+    }
+}
+
+fn create_smart_query_handler(mock_pyth: &MockPyth) -> impl HandlesSmartQuery {
+    struct Temp {
+        mock_pyth: MockPyth,
+    }
+    impl HandlesSmartQuery for Temp {
+        fn handle(&self, contract_addr: &str, msg: &cosmwasm_std::Binary) -> QuerierResult {
+            if contract_addr == PYTH_CONTRACT_ADDR {
+                return self.mock_pyth.handle_wasm_query(msg);
+            }
+
+            if contract_addr == LP_TOKEN_ADDR {
+                return SystemResult::Ok(
+                    to_binary(&TokenInfoResponse {
+                        decimals: 6u8,
+                        name: format!("LP"),
+                        symbol: format!("LP"),
+                        total_supply: Uint128::from(100u128),
+                    })
+                    .into(),
+                );
+            }
+
+            SystemResult::Err(SystemError::NoSuchContract {
+                addr: contract_addr.to_owned(),
+            })
+        }
+    }
+    Temp {
+        mock_pyth: mock_pyth.to_owned(),
+    }
+}
+
 fn setup_test(
     mock_pyth: &MockPyth,
     block_timestamp: UnixTimestamp,
-) -> (OwnedDeps<MockStorage, MockApi, MockQuerier>, Env) {
-    let mut dependencies = mock_dependencies();
+) -> (
+    OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper>,
+    Env,
+) {
+    let dependencies = inj_mock_deps(mock_pyth);
 
-    let mock_pyth_copy = (*mock_pyth).clone();
-    dependencies
-        .querier
-        .update_wasm(move |x| handle_wasm_query(&mock_pyth_copy, x));
+    // let mock_pyth_copy = (*mock_pyth).clone();
+    // dependencies
+    //     .querier
+    //     .update_wasm(move |x| handle_wasm_query(&mock_pyth_copy, x));
 
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(u64::try_from(block_timestamp).unwrap());
@@ -47,7 +96,7 @@ fn setup_test(
     (dependencies, env)
 }
 
-fn handle_wasm_query(pyth: &MockPyth, wasm_query: &WasmQuery) -> QuerierResult {
+fn _handle_wasm_query(pyth: &MockPyth, wasm_query: &WasmQuery) -> QuerierResult {
     match wasm_query {
         WasmQuery::Smart { contract_addr, msg } if *contract_addr == PYTH_CONTRACT_ADDR => {
             pyth.handle_wasm_query(msg)

@@ -1,19 +1,21 @@
 use cosmwasm_std::{Addr, Decimal, Deps, Env, QuerierWrapper, StdError, StdResult, Uint128};
-use pyth_sdk_cw::{query_price_feed, Price, PriceFeedResponse, PriceIdentifier};
+use injective_cosmwasm::InjectiveQueryWrapper;
+use pyth_sdk_cw::{Price, PriceFeedResponse, PriceIdentifier};
 
 use crate::{
     msg::{FetchPriceResponse, GetBasketAssetIdealRatioResponse},
+    querier::query_price_feed,
     state::{Basket, BasketAsset, Config, BASKET, CONFIG},
 };
 
-pub fn config(deps: Deps) -> StdResult<Config> {
+pub fn config(deps: Deps<InjectiveQueryWrapper>) -> StdResult<Config> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
 }
 
 pub fn get_basket_ideal_ratio(
-    deps: Deps,
-    env: Env,
+    deps: Deps<InjectiveQueryWrapper>,
+    env: &Env,
 ) -> StdResult<Vec<GetBasketAssetIdealRatioResponse>> {
     let config = CONFIG.load(deps.storage)?;
     let basket = BASKET.load(deps.storage)?;
@@ -32,8 +34,8 @@ pub fn get_basket_ideal_ratio(
 }
 
 pub fn basket_ideal_state(
-    querier: &QuerierWrapper,
-    env: Env,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
+    env: &Env,
     config: &Config,
     basket: &Basket,
 ) -> StdResult<Vec<Decimal>> {
@@ -54,7 +56,7 @@ pub fn basket_ideal_state(
 }
 
 pub fn basket_asset_ratio(
-    querier: &QuerierWrapper,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
     env: &Env,
     config: &Config,
     basket_asset: &BasketAsset,
@@ -80,7 +82,7 @@ pub fn basket_asset_ratio(
 }
 
 pub fn basket_value(
-    querier: &QuerierWrapper,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
     env: &Env,
     config: &Config,
     basket: &Basket,
@@ -120,7 +122,7 @@ pub fn pyth_price(price: Price) -> StdResult<Decimal> {
 }
 
 pub fn basket_asset_value(
-    querier: &QuerierWrapper,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
     env: &Env,
     config: &Config,
     basket_asset: &BasketAsset,
@@ -139,7 +141,7 @@ pub fn basket_asset_value(
 }
 
 pub fn basket_asset_price(
-    querier: &QuerierWrapper,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
     env: &Env,
     pyth_contract_addr: &Addr,
     price_feed_id: PriceIdentifier,

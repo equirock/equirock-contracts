@@ -30,3 +30,4 @@ pub struct Basket {
 }
 
 pub const BASKET: Item<Basket> = Item::new("basket");
+pub const REPLY_CACHE: Item<Asset> = Item::new("reply-cache");
