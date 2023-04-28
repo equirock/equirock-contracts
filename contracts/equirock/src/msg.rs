@@ -34,6 +34,7 @@ pub enum QueryMsg {
 pub struct GetBasketAssetIdealRatioResponse {
     pub basket_asset: BasketAsset,
     pub ratio: Decimal,
+    pub price: Decimal,
 }
 
 #[cw_serde]

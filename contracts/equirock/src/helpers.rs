@@ -1,8 +1,11 @@
+use injective_cosmwasm::InjectiveMsgWrapper;
+use injective_math::FPDecimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, CustomQuery, Querier, QuerierWrapper, StdResult, WasmMsg, WasmQuery,
+    to_binary, Addr, CosmosMsg, CustomQuery, Querier, QuerierWrapper, StdResult, SubMsg, WasmMsg,
+    WasmQuery,
 };
 
 use crate::{
@@ -45,4 +48,19 @@ impl CwTemplateContract {
         let res: Config = QuerierWrapper::<CQ>::new(querier).query(&query)?;
         Ok(res)
     }
+}
+
+pub fn i32_to_dec(source: i32) -> FPDecimal {
+    FPDecimal::from(i128::from(source))
+}
+
+pub fn get_message_data(
+    response: &[SubMsg<InjectiveMsgWrapper>],
+    position: usize,
+) -> &InjectiveMsgWrapper {
+    let sth = match &response.get(position).unwrap().msg {
+        CosmosMsg::Custom(msg) => msg,
+        _ => panic!("No wrapped message found"),
+    };
+    sth
 }

@@ -26,10 +26,13 @@ pub fn get_basket_ideal_ratio(
         .assets
         .iter()
         .zip(ratios)
-        .map(|(basket_asset, ratio)| GetBasketAssetIdealRatioResponse {
-            basket_asset: basket_asset.to_owned(),
-            ratio,
-        })
+        .map(
+            |(basket_asset, (ratio, price))| GetBasketAssetIdealRatioResponse {
+                basket_asset: basket_asset.to_owned(),
+                ratio,
+                price,
+            },
+        )
         .collect())
 }
 
@@ -38,7 +41,7 @@ pub fn basket_ideal_state(
     env: &Env,
     config: &Config,
     basket: &Basket,
-) -> StdResult<Vec<Decimal>> {
+) -> StdResult<Vec<(Decimal, Decimal)>> {
     let w_sum = basket
         .assets
         .iter()
@@ -50,7 +53,7 @@ pub fn basket_ideal_state(
         .assets
         .iter()
         .map(|basket_asset| basket_asset_ratio(querier, &env, &config, basket_asset, w_sum))
-        .collect::<StdResult<Vec<Decimal>>>()?;
+        .collect::<StdResult<Vec<(Decimal, Decimal)>>>()?;
 
     Ok(basket_asset_ratios)
 }
@@ -61,7 +64,7 @@ pub fn basket_asset_ratio(
     config: &Config,
     basket_asset: &BasketAsset,
     w_sum: Uint128,
-) -> StdResult<Decimal> {
+) -> StdResult<(Decimal, Decimal)> {
     let fetch_price = basket_asset_price(
         querier,
         env,
@@ -78,7 +81,7 @@ pub fn basket_asset_ratio(
     .checked_div(price)
     .map_err(|e| StdError::generic_err(e.to_string()))?;
 
-    Ok(basket_asset_ratio)
+    Ok((basket_asset_ratio, price))
 }
 
 pub fn basket_value(

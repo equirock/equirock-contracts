@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use crate::contract::{execute, instantiate, query};
+use crate::helpers::get_message_data;
 use crate::msg::{ExecuteMsg, GetBasketAssetIdealRatioResponse, InstantiateMsg, QueryMsg};
 use crate::state::{Basket, BasketAsset, Config, CONFIG};
 use crate::ContractError;
@@ -10,13 +11,16 @@ use crate::ContractError;
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, Api, Coin, Decimal, Env, OwnedDeps, QuerierResult,
-    SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
+    coin, coins, from_binary, to_binary, Addr, Api, Coin, ContractResult, Decimal, Env, OwnedDeps,
+    QuerierResult, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::TokenInfoResponse;
 use injective_cosmwasm::{
-    mock_dependencies, HandlesSmartQuery, InjectiveQueryWrapper, MarketId, WasmMockQuerier,
+    mock_dependencies, DenomDecimals, HandlesDenomDecimalsQuery, HandlesMarketIdQuery,
+    HandlesSmartQuery, InjectiveMsg, InjectiveQueryWrapper, MarketId, QueryDenomDecimalsResponse,
+    SpotMarket, SpotMarketResponse, WasmMockQuerier,
 };
+use injective_math::FPDecimal;
 use pyth_sdk_cw::testing::MockPyth;
 use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
 
@@ -26,15 +30,22 @@ const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b
 
 const LP_TOKEN_ADDR: &str = "lp-token-0001";
 const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
+const ATOM: &str = "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom";
 
 const INJUSDT_MARKET_ID: &str =
     "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe";
+const ATOMUSDT_MARKET_ID: &str =
+    "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15";
+
+const CONTRACT_ADDR: &str = "inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87";
 
 pub fn inj_mock_deps(
     mock_pyth: &MockPyth,
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper> {
     let mut custom_querier: WasmMockQuerier = WasmMockQuerier::new();
     custom_querier.smart_query_handler = Some(Box::new(create_smart_query_handler(mock_pyth)));
+    custom_querier.spot_market_response_handler = Some(Box::new(create_spot_market_handler()));
+    custom_querier.denom_decimals_handler = Some(Box::new(create_denom_decimals_handler()));
     OwnedDeps {
         api: MockApi::default(),
         storage: MockStorage::default(),
@@ -73,6 +84,86 @@ fn create_smart_query_handler(mock_pyth: &MockPyth) -> impl HandlesSmartQuery {
     Temp {
         mock_pyth: mock_pyth.to_owned(),
     }
+}
+
+fn create_spot_market_handler() -> impl HandlesMarketIdQuery {
+    struct Temp {}
+    impl HandlesMarketIdQuery for Temp {
+        fn handle(&self, market_id: MarketId) -> QuerierResult {
+            if market_id.as_str() == ATOMUSDT_MARKET_ID {
+                let response = SpotMarketResponse {
+                    market: Some(SpotMarket {
+                        ticker: ATOM.to_string(),
+                        base_denom: "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom"
+                            .to_string(),
+                        quote_denom: USDT.to_string(),
+                        maker_fee_rate: FPDecimal::from_str("0.001").unwrap(),
+                        taker_fee_rate: FPDecimal::from_str("0.002").unwrap(),
+                        relayer_fee_share_rate: FPDecimal::from_str("0.4").unwrap(),
+                        market_id,
+                        status: 0,
+                        min_price_tick_size: FPDecimal::from_str("0.0010000000000000").unwrap(),
+                        min_quantity_tick_size: FPDecimal::from_str("1000.000000000000000000")
+                            .unwrap(),
+                    }),
+                };
+                return SystemResult::Ok(ContractResult::from(to_binary(&response)));
+            }
+
+            let response = SpotMarketResponse {
+                market: Some(SpotMarket {
+                    ticker: "INJ/USDT".to_string(),
+                    base_denom: "inj".to_string(),
+                    quote_denom: USDT.to_string(),
+                    maker_fee_rate: FPDecimal::from_str("0.001").unwrap(),
+                    taker_fee_rate: FPDecimal::from_str("0.002").unwrap(),
+                    relayer_fee_share_rate: FPDecimal::from_str("0.4").unwrap(),
+                    market_id,
+                    status: 0,
+                    min_price_tick_size: FPDecimal::from_str("0.000000000000001000").unwrap(),
+                    min_quantity_tick_size: FPDecimal::from_str(
+                        "1000000000000000.000000000000000000",
+                    )
+                    .unwrap(),
+                }),
+            };
+            SystemResult::Ok(ContractResult::from(to_binary(&response)))
+        }
+    }
+    Temp {}
+}
+
+fn create_denom_decimals_handler() -> impl HandlesDenomDecimalsQuery {
+    struct Temp {}
+    impl HandlesDenomDecimalsQuery for Temp {
+        fn handle(&self, denoms: Vec<String>) -> QuerierResult {
+            let response = QueryDenomDecimalsResponse {
+                denom_decimals: denoms
+                    .iter()
+                    .map(|d| DenomDecimals {
+                        decimals: match d.as_str() {
+                            "inj" => 18u64,
+                            ATOM => 6u64,
+                            USDT => 6u64,
+                            _ => 18u64,
+                        },
+                        denom: d.to_owned(),
+                    })
+                    .collect(), //  vec![
+                                //     DenomDecimals {
+                                //         decimals: 18u64,
+                                //         denom: format!("inj"),
+                                //     },
+                                //     DenomDecimals {
+                                //         decimals: 6u64,
+                                //         denom: ATOM.to_string(),
+                                //     },
+                                // ],
+            };
+            SystemResult::Ok(ContractResult::from(to_binary(&response)))
+        }
+    }
+    Temp {}
 }
 
 fn setup_test(
@@ -357,4 +448,148 @@ fn query_basket_prices() {
             Decimal::from_str("0.025").unwrap()
         ]
     );
+}
+
+#[test]
+fn deposit() {
+    let current_unix_time = 10_000_000;
+    let mut mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+    let price_feed_inj = PriceFeed::new(
+        PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+        Price {
+            price: 90,
+            conf: 10,
+            expo: -1,
+            publish_time: current_unix_time,
+        },
+        Price {
+            price: 80,
+            conf: 20,
+            expo: -1,
+            publish_time: current_unix_time,
+        },
+    );
+    let price_feed_atom = PriceFeed::new(
+        PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+        Price {
+            price: 110,
+            conf: 20,
+            expo: -1,
+            publish_time: current_unix_time,
+        },
+        Price {
+            price: 110,
+            conf: 20,
+            expo: -1,
+            publish_time: current_unix_time,
+        },
+    );
+
+    mock_pyth.add_feed(price_feed_inj);
+    mock_pyth.add_feed(price_feed_atom);
+
+    let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
+
+    let msg = InstantiateMsg {
+        etf_token_code_id: 1,
+        etf_token_name: String::from("ER-Strategy-1"),
+        deposit_asset: AssetInfo::NativeToken {
+            denom: String::from(USDT),
+        },
+        pyth_contract_addr: Addr::unchecked(PYTH_CONTRACT_ADDR),
+        basket: Basket {
+            assets: vec![
+                BasketAsset {
+                    asset: Asset {
+                        info: {
+                            AssetInfo::NativeToken {
+                                denom: String::from("inj"),
+                            }
+                        },
+                        amount: Uint128::zero(),
+                    },
+                    pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+                    weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(INJUSDT_MARKET_ID).unwrap(),
+                },
+                BasketAsset {
+                    asset: Asset {
+                        info: {
+                            AssetInfo::NativeToken {
+                                denom: String::from("atom"),
+                            }
+                        },
+                        amount: Uint128::zero(),
+                    },
+                    pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+                    weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(ATOMUSDT_MARKET_ID).unwrap(),
+                },
+            ],
+        },
+    };
+    let info = mock_info("creator", &vec![]);
+
+    let _res = instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+
+    CONFIG
+        .update(
+            &mut deps.storage,
+            |mut config| -> Result<_, ContractError> {
+                let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
+                config.lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
+                Ok(config)
+            },
+        )
+        .unwrap();
+
+    let asset = Asset {
+        amount: Uint128::from(1_000_000u128),
+        info: AssetInfo::NativeToken {
+            denom: String::from(USDT),
+        },
+    };
+    let info = mock_info(
+        "creator",
+        &vec![Coin {
+            amount: asset.amount.to_owned(),
+            denom: String::from(USDT),
+        }],
+    );
+
+    let msg = ExecuteMsg::Deposit { asset: asset };
+
+    let res = execute(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+    let messages = res.messages;
+
+    // res.messages.len()
+    assert_eq!(messages.len(), 2);
+
+    if let InjectiveMsg::CreateSpotMarketOrder { sender, order } =
+        &get_message_data(&messages, 0).msg_data
+    {
+        assert_eq!(sender.to_string(), CONTRACT_ADDR, "sender not correct");
+        assert_eq!(order.market_id.as_str(), INJUSDT_MARKET_ID);
+        assert_eq!(
+            order.order_info.quantity.to_string(),
+            format!("55000000000000000")
+        );
+        assert_eq!(
+            order.order_info.price.to_string(),
+            format!("0.00000000000909")
+        );
+    } else {
+        panic!("Wrong message type!");
+    }
+
+    if let InjectiveMsg::CreateSpotMarketOrder { sender, order } =
+        &get_message_data(&messages, 1).msg_data
+    {
+        assert_eq!(sender.to_string(), CONTRACT_ADDR, "sender not correct");
+        assert_eq!(order.market_id.as_str(), ATOMUSDT_MARKET_ID);
+        assert_eq!(order.order_info.quantity.to_string(), format!("45000"));
+        assert_eq!(order.order_info.price.to_string(), format!("11.11"));
+    } else {
+        panic!("Wrong message type!");
+    }
 }
