@@ -36,14 +36,14 @@ INSTANTIATE_MSG=$(cat <<-END
             "asset": {
               "info": {
                 "native_token": {
-                  "denom": "inj"
+                  "denom": "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom"
                 }
               },
               "amount": "0"
             },
             "weight": "2",
-            "pyth_price_feed": "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",
-            "spot_market_id": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"
+            "pyth_price_feed": "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3",
+            "spot_market_id": "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15"
           }]
         }
     }
@@ -57,4 +57,34 @@ sleep 3
 echo $TX_HASH
 
 CONTRACT_ADDR=$(injectived query tx "$TX_HASH" -o json | jq 'last(.logs[0].events[] | .attributes[] | select(.key=="contract_address") | .value)' -r)
+CONTRACT_ADDR=${CONTRACT_ADDR:1:-1}
+echo $CONTRACT_ADDR
+
+ADMIN=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
+USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"
+AMOUNT="10000000"
+
+DEPOSIT_MSG=$(cat <<-END
+    {
+      "deposit": {
+        "asset": {
+          "info": {
+            "native_token": {
+              "denom": "%s"
+            }
+          },
+          "amount": "%s"
+        }
+      }
+    }
+END
+)
+
+MSG=$(printf "$DEPOSIT_MSG" "$USDT" "$AMOUNT")
+
+TX_HASH=$(injectived tx wasm execute "$CONTRACT_ADDR" "$MSG" --from $ADMIN --gas-prices 500000000inj --gas auto --gas-adjustment 1.3 --amount "$AMOUNT$USDT" -o json -y | jq '.txhash' -r)
+sleep 3
+echo $TX_HASH
+
+CONTRACT_ADDR=$(injectived query tx "$TX_HASH" -o json | jq 'last(.logs[0].events[] | .attributes[] )' -r)
 echo $CONTRACT_ADDR

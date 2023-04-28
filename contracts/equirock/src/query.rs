@@ -110,16 +110,14 @@ pub fn pyth_price(price: Price) -> StdResult<Decimal> {
     if price_expo < 0 {
         Ok(Decimal::from_ratio(
             price_price,
-            Uint128::from(10u128).checked_mul(Uint128::from(price_expo.abs() as u128))?,
+            Uint128::from(10u128).checked_pow(price_expo.abs() as u32)?,
         ))
     } else if price_expo == 0 {
         Ok(Decimal::raw(price_price.into()))
     } else {
         Ok(Decimal::raw(
-            (price_price.checked_mul(
-                Uint128::from(10u128).checked_mul(Uint128::from(price_expo as u128))?,
-            )?)
-            .into(),
+            (price_price.checked_mul(Uint128::from(10u128).checked_pow(price_expo as u32)?)?)
+                .into(),
         ))
     }
 }

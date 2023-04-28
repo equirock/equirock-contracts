@@ -149,16 +149,7 @@ fn create_denom_decimals_handler() -> impl HandlesDenomDecimalsQuery {
                         },
                         denom: d.to_owned(),
                     })
-                    .collect(), //  vec![
-                                //     DenomDecimals {
-                                //         decimals: 18u64,
-                                //         denom: format!("inj"),
-                                //     },
-                                //     DenomDecimals {
-                                //         decimals: 6u64,
-                                //         denom: ATOM.to_string(),
-                                //     },
-                                // ],
+                    .collect(),
             };
             SystemResult::Ok(ContractResult::from(to_binary(&response)))
         }
@@ -457,30 +448,30 @@ fn deposit() {
     let price_feed_inj = PriceFeed::new(
         PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
         Price {
-            price: 90,
+            price: 900000000,
             conf: 10,
-            expo: -1,
+            expo: -8,
             publish_time: current_unix_time,
         },
         Price {
-            price: 80,
+            price: 800000000,
             conf: 20,
-            expo: -1,
+            expo: -8,
             publish_time: current_unix_time,
         },
     );
     let price_feed_atom = PriceFeed::new(
         PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
         Price {
-            price: 110,
+            price: 1100000000,
             conf: 20,
-            expo: -1,
+            expo: -8,
             publish_time: current_unix_time,
         },
         Price {
-            price: 110,
+            price: 1100000000,
             conf: 20,
-            expo: -1,
+            expo: -8,
             publish_time: current_unix_time,
         },
     );

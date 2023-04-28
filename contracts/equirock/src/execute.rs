@@ -6,8 +6,8 @@ use cosmwasm_std::{
 };
 use injective_cosmwasm::{
     create_spot_market_order_msg, get_default_subaccount_id_for_checked_address,
-    InjectiveMsgWrapper, InjectiveQuerier, InjectiveQueryWrapper, MarketId, OrderType, SpotMarket,
-    SpotOrder, SubaccountId,
+    InjectiveMsgWrapper, InjectiveQuerier, InjectiveQueryWrapper, MarketId, OrderType,
+    QueryDenomDecimalResponse, SpotMarket, SpotOrder, SubaccountId,
 };
 use injective_math::FPDecimal;
 
@@ -143,42 +143,50 @@ pub fn deposit(
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
     let injective_querier = InjectiveQuerier::new(&deps.querier);
 
+    let mut log: Vec<String> = vec![];
     for asset_ideal in asset_ideals {
         let market =
             injective_querier.query_spot_market(&asset_ideal.basket_asset.spot_market_id)?;
         if let Some(market) = market.market {
-            let denom_decimals = injective_querier
-                .query_denom_decimals::<Vec<String>>(&vec![
-                    market.base_denom.to_owned(),
-                    market.quote_denom.to_owned(),
-                ])?
-                .denom_decimals;
+            log.push(format!("{:?}", market));
+            let base_decimals = if market.base_denom == "inj" {
+                18u64
+            } else {
+                injective_querier
+                    .query_denom_decimal(&market.base_denom)
+                    .unwrap_or(QueryDenomDecimalResponse { decimals: 8u64 })
+                    .decimals
+            };
+            // let quote_decimals = denom_decimals[1].decimals;
+            let quote_decimals = 6u64; // USDT
 
-            let base_decimals = denom_decimals[0].decimals;
-            let quote_decimals = denom_decimals[1].decimals;
+            log.push(format!("base_decimals {:?}", base_decimals));
+            log.push(format!("asset_ideal {:?}", asset_ideal));
 
-            let order_message = SubMsg::reply_on_success(
-                spot_order(
-                    slippage,
-                    asset_ideal.price,
-                    asset_ideal.ratio.checked_mul(
-                        Decimal::from_atomics(asset.amount, quote_decimals as u32)
-                            .map_err(|e| StdError::generic_err(e.to_string()))?,
-                    )?,
-                    &market,
-                    base_decimals,
-                    quote_decimals,
-                    &subaccount_id,
-                    &contract,
+            let order_msg = spot_order(
+                slippage,
+                asset_ideal.price,
+                asset_ideal.ratio.checked_mul(
+                    Decimal::from_atomics(asset.amount, quote_decimals as u32)
+                        .map_err(|e| StdError::generic_err(e.to_string()))?,
                 )?,
-                ATOMIC_ORDER_REPLY_ID,
-            );
+                &market,
+                base_decimals,
+                quote_decimals,
+                &subaccount_id,
+                &contract,
+            )?;
+
+            log.push(format!("order_msg {:?}", order_msg));
+
+            let order_message = SubMsg::reply_on_success(order_msg, ATOMIC_ORDER_REPLY_ID);
             submessages.push(order_message);
         }
     }
 
     Ok(Response::new()
         .add_attribute("action", "deposit")
+        .add_attribute("log", format!("{:?}", log))
         .add_submessages(submessages))
 
     // let spot_market = injective_querier.query_spot_market(&basket.assets[0].spot_market_id)?;
