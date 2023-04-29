@@ -554,7 +554,7 @@ fn deposit() {
     let messages = res.messages;
 
     // res.messages.len()
-    assert_eq!(messages.len(), 2);
+    assert_eq!(messages.len(), 3);
 
     if let InjectiveMsg::CreateSpotMarketOrder { sender, order } =
         &get_message_data(&messages, 0).msg_data

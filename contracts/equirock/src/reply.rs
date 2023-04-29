@@ -5,7 +5,11 @@ use injective_cosmwasm::InjectiveMsgWrapper;
 use injective_math::FPDecimal;
 use protobuf::Message;
 
-use crate::{response::MsgInstantiateContractResponse, state::CONFIG, ContractError};
+use crate::{
+    response::MsgInstantiateContractResponse,
+    state::{CONFIG, DEPOSIT_PAID_CACHE},
+    ContractError,
+};
 
 use injective_protobuf::proto::tx;
 
@@ -34,7 +38,7 @@ pub fn handle_lp_init(
 }
 
 pub fn handle_order(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     msg: Reply,
 ) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
@@ -66,7 +70,9 @@ pub fn handle_order(
     let price = FPDecimal::from_str(&trade_data.price)? / dec_scale_factor;
     let fee = FPDecimal::from_str(&trade_data.fee)? / dec_scale_factor;
 
-    let _paid = quantity * price + fee;
+    let paid = quantity * price + fee;
+
+    DEPOSIT_PAID_CACHE.update::<_, StdError>(deps.storage, |p| Ok(p.checked_add(paid.into())?))?;
 
     // let config = STATE.load(deps.storage)?;
     // let contract_address = env.contract.address;

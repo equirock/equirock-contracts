@@ -31,3 +31,4 @@ pub struct Basket {
 
 pub const BASKET: Item<Basket> = Item::new("basket");
 pub const REPLY_CACHE: Item<Asset> = Item::new("reply-cache");
+pub const DEPOSIT_PAID_CACHE: Item<Uint128> = Item::new("deposit-paid-cache");

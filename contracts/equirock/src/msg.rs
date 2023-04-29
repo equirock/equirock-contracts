@@ -18,7 +18,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig {},
     Deposit { asset: Asset },
-    Callback { msg: CallbackMsg },
+    Callback(CallbackMsg),
 }
 
 #[cw_serde]

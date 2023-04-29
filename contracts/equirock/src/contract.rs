@@ -93,7 +93,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
-        ExecuteMsg::Callback { msg } => callback(deps, env, info, msg),
+        ExecuteMsg::Callback(msg) => callback(deps, env, info, msg),
     }
 }
 

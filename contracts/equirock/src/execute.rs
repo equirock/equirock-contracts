@@ -2,7 +2,8 @@ use std::{ops::Div, str::FromStr};
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, StdError, StdResult, SubMsg,
+    to_binary, Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    SubMsg, Uint128, WasmMsg,
 };
 use injective_cosmwasm::{
     create_spot_market_order_msg, get_default_subaccount_id_for_checked_address,
@@ -12,10 +13,11 @@ use injective_cosmwasm::{
 use injective_math::FPDecimal;
 
 use crate::{
+    msg::{CallbackMsg, ExecuteMsg},
     querier::query_token_info,
     query::{basket_value, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
-    state::{BASKET, CONFIG, REPLY_CACHE},
+    state::{BASKET, CONFIG, DEPOSIT_PAID_CACHE, REPLY_CACHE},
 };
 
 pub fn update_config(
@@ -122,6 +124,7 @@ pub fn deposit(
 
     asset.assert_sent_native_token_balance(&info)?;
 
+    DEPOSIT_PAID_CACHE.save(deps.storage, &Uint128::zero())?;
     REPLY_CACHE.save(deps.storage, &asset)?;
 
     let basket = BASKET.load(deps.storage)?;
@@ -184,10 +187,19 @@ pub fn deposit(
         }
     }
 
+    let after_deposit_msg = WasmMsg::Execute {
+        contract_addr: contract.to_owned().into_string(),
+        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterDeposit {
+            deposit: asset.amount,
+        }))?,
+        funds: vec![],
+    };
+
     Ok(Response::new()
         .add_attribute("action", "deposit")
         .add_attribute("log", format!("{:?}", log))
-        .add_submessages(submessages))
+        .add_submessages(submessages)
+        .add_message(after_deposit_msg))
 
     // let spot_market = injective_querier.query_spot_market(&basket.assets[0].spot_market_id)?;
 
