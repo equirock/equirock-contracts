@@ -5,7 +5,7 @@ use crate::state::DEPOSIT_PAID_CACHE;
 
 pub fn after_deposit(
     deps: DepsMut<InjectiveQueryWrapper>,
-    env: Env,
+    _env: Env,
     deposit: Uint128,
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let paid = DEPOSIT_PAID_CACHE.load(deps.storage)?;

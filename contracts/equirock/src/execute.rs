@@ -116,9 +116,10 @@ pub fn deposit(
 
     if let AssetInfo::NativeToken { denom } = &config.deposit_asset {
         if let Some(other_coin) = info.funds.iter().find(|x| x.denom != *denom) {
-            return Err(
-                StdError::generic_err(format!("Deposit other tokens {}", other_coin)).into(),
-            );
+            return Err(StdError::generic_err(format!(
+                "Deposit other tokens {}",
+                other_coin
+            )));
         }
     }
 
@@ -141,7 +142,7 @@ pub fn deposit(
     let _deposit_without_fee =
         Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
 
-    let subaccount_id = get_default_subaccount_id_for_checked_address(&contract);
+    let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
     let slippage = Decimal::from_ratio(1u128, 100u128);
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
     let injective_querier = InjectiveQuerier::new(&deps.querier);
@@ -177,7 +178,7 @@ pub fn deposit(
                 base_decimals,
                 quote_decimals,
                 &subaccount_id,
-                &contract,
+                contract,
             )?;
 
             log.push(format!("order_msg {:?}", order_msg));

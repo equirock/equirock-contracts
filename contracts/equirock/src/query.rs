@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use cosmwasm_std::{Addr, Decimal, Deps, Env, QuerierWrapper, StdError, StdResult, Uint128};
 use injective_cosmwasm::InjectiveQueryWrapper;
 use pyth_sdk_cw::{Price, PriceFeedResponse, PriceIdentifier};
@@ -52,7 +54,7 @@ pub fn basket_ideal_state(
     let basket_asset_ratios = basket
         .assets
         .iter()
-        .map(|basket_asset| basket_asset_ratio(querier, &env, &config, basket_asset, w_sum))
+        .map(|basket_asset| basket_asset_ratio(querier, env, config, basket_asset, w_sum))
         .collect::<StdResult<Vec<(Decimal, Decimal)>>>()?;
 
     Ok(basket_asset_ratios)
@@ -93,7 +95,7 @@ pub fn basket_value(
     let basket_asset_values = basket
         .assets
         .iter()
-        .map(|basket_asset| basket_asset_value(querier, &env, &config, basket_asset))
+        .map(|basket_asset| basket_asset_value(querier, env, config, basket_asset))
         .collect::<StdResult<Vec<Decimal>>>()?;
 
     let sum = basket_asset_values
@@ -107,19 +109,17 @@ pub fn pyth_price(price: Price) -> StdResult<Decimal> {
     let price_price = Uint128::from(price.price as u128);
     let price_expo = price.expo;
 
-    if price_expo < 0 {
-        Ok(Decimal::from_ratio(
-            price_price,
-            Uint128::from(10u128).checked_pow(price_expo.abs() as u32)?,
-        ))
-    } else if price_expo == 0 {
-        Ok(Decimal::raw(price_price.into()))
-    } else {
-        Ok(Decimal::raw(
+    Ok(match price_expo.cmp(&0) {
+        Ordering::Greater => Decimal::raw(
             (price_price.checked_mul(Uint128::from(10u128).checked_pow(price_expo as u32)?)?)
                 .into(),
-        ))
-    }
+        ),
+        Ordering::Less => Decimal::from_ratio(
+            price_price,
+            Uint128::from(10u128).checked_pow(price_expo.unsigned_abs())?,
+        ),
+        Ordering::Equal => Decimal::raw(price_price.into()),
+    })
 }
 
 pub fn basket_asset_value(
