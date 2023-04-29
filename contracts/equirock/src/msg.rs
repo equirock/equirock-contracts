@@ -49,5 +49,9 @@ pub struct FetchPriceResponse {
 
 #[cw_serde]
 pub enum CallbackMsg {
-    AfterDeposit { deposit: Uint128 },
+    AfterDeposit {
+        deposit: Uint128,
+        sender: Addr,
+        basket_value: Uint128,
+    },
 }

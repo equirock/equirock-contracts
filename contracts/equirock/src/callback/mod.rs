@@ -20,7 +20,11 @@ pub fn callback(
     }
 
     match msg {
-        CallbackMsg::AfterDeposit { deposit } => after_deposit(deps, env, deposit),
+        CallbackMsg::AfterDeposit {
+            deposit,
+            sender,
+            basket_value,
+        } => after_deposit(deps, env, deposit, sender, basket_value),
     }
 }
 
@@ -28,14 +32,15 @@ pub fn callback(
 mod test {
     use std::time::Duration;
 
-    use cosmwasm_std::{coins, testing::mock_info, Coin, Uint128};
+    use astroport::asset::AssetInfo;
+    use cosmwasm_std::{coins, testing::mock_info, Addr, Api, Coin, Uint128};
     use pyth_sdk_cw::testing::MockPyth;
 
     use crate::{
         contract::execute,
         msg::{CallbackMsg, ExecuteMsg},
-        state::DEPOSIT_PAID_CACHE,
-        tests::{setup_test, CONTRACT_ADDR, USDT},
+        state::{Config, CONFIG, DEPOSIT_PAID_CACHE},
+        tests::{setup_test, CONTRACT_ADDR, LP_TOKEN_ADDR, USDT},
     };
 
     #[test]
@@ -48,6 +53,8 @@ mod test {
         let auth_info = mock_info("anyone", &coins(1, USDT.to_owned()));
         let msg = ExecuteMsg::Callback(CallbackMsg::AfterDeposit {
             deposit: Uint128::one(),
+            sender: Addr::unchecked("sender"),
+            basket_value: Uint128::one(),
         });
 
         let _res = execute(deps.as_mut(), env.to_owned(), auth_info, msg).unwrap();
@@ -62,15 +69,37 @@ mod test {
         let auth_info = mock_info(CONTRACT_ADDR, &coins(1, USDT.to_owned()));
         let msg = ExecuteMsg::Callback(CallbackMsg::AfterDeposit {
             deposit: Uint128::one(),
+            sender: Addr::unchecked("sender"),
+            basket_value: Uint128::one(),
         });
 
-        DEPOSIT_PAID_CACHE
-            .save(&mut deps.storage, &Uint128::zero())
+        let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
+        let lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
+
+        CONFIG
+            .save(
+                &mut deps.storage,
+                &Config {
+                    lp_token: lp_token,
+                    deposit_asset: AssetInfo::NativeToken {
+                        denom: USDT.to_owned(),
+                    },
+                    pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
+                },
+            )
             .unwrap();
 
-        assert_eq!(
-            execute(deps.as_mut(), env.to_owned(), auth_info, msg).is_ok(),
-            true
+        DEPOSIT_PAID_CACHE
+            .save(&mut deps.storage, &Uint128::one())
+            .unwrap();
+
+        println!(
+            "{:?}",
+            execute(deps.as_mut(), env.to_owned(), auth_info, msg).unwrap()
         );
+        // assert_eq!(
+        //     execute(deps.as_mut(), env.to_owned(), auth_info, msg).is_ok(),
+        //     true
+        // );
     }
 }
