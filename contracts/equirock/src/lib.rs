@@ -4,6 +4,7 @@ pub mod execute;
 pub mod helpers;
 // #[cfg(test)]
 // pub mod integration_tests;
+pub mod callback;
 pub mod msg;
 pub mod querier;
 pub mod query;

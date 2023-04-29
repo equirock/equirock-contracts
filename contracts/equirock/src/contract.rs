@@ -9,6 +9,7 @@ use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
 use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
+use crate::callback::callback;
 use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -92,6 +93,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
+        ExecuteMsg::Callback { msg } => callback(deps, env, info, msg),
     }
 }
 

@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Decimal};
+use cosmwasm_std::{Addr, Decimal, Uint128};
 use pyth_sdk_cw::Price;
 
 use crate::state::{Basket, BasketAsset, Config};
@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig {},
     Deposit { asset: Asset },
+    Callback { msg: CallbackMsg },
 }
 
 #[cw_serde]
@@ -44,4 +45,9 @@ pub struct MigrateMsg {}
 pub struct FetchPriceResponse {
     pub current_price: Price,
     pub ema_price: Price,
+}
+
+#[cw_serde]
+pub enum CallbackMsg {
+    AfterDeposit { deposit: Uint128 },
 }

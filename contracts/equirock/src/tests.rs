@@ -28,16 +28,16 @@ const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
 const PRICE_ID_INJ: &str = "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3";
 const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3";
 
-const LP_TOKEN_ADDR: &str = "lp-token-0001";
-const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
-const ATOM: &str = "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom";
+pub const LP_TOKEN_ADDR: &str = "lp-token-0001";
+pub const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
+pub const ATOM: &str = "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom";
 
 const INJUSDT_MARKET_ID: &str =
     "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe";
 const ATOMUSDT_MARKET_ID: &str =
     "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15";
 
-const CONTRACT_ADDR: &str = "inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87";
+pub const CONTRACT_ADDR: &str = "inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87";
 
 pub fn inj_mock_deps(
     mock_pyth: &MockPyth,
@@ -157,7 +157,7 @@ fn create_denom_decimals_handler() -> impl HandlesDenomDecimalsQuery {
     Temp {}
 }
 
-fn setup_test(
+pub fn setup_test(
     mock_pyth: &MockPyth,
     block_timestamp: UnixTimestamp,
 ) -> (
@@ -173,7 +173,7 @@ fn setup_test(
 
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(u64::try_from(block_timestamp).unwrap());
-    env.contract.address = Addr::unchecked("inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87");
+    env.contract.address = Addr::unchecked(CONTRACT_ADDR);
 
     (dependencies, env)
 }
