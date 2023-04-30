@@ -13,7 +13,7 @@ use crate::callback::callback;
 use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::query::{config, get_basket_ideal_ratio};
+use crate::query::{config, get_basket_ideal_ratio, get_basket_value};
 use crate::reply::{handle_lp_init, handle_order, ATOMIC_ORDER_REPLY_ID, INSTANTIATE_REPLY_ID};
 use crate::state::{Config, BASKET, CONFIG};
 
@@ -102,6 +102,7 @@ pub fn query(deps: Deps<InjectiveQueryWrapper>, env: Env, msg: QueryMsg) -> StdR
     match msg {
         QueryMsg::GetConfig {} => to_binary(&config(deps)?),
         QueryMsg::GetBasketIdealRatio {} => to_binary(&get_basket_ideal_ratio(deps, &env)?),
+        QueryMsg::GetBasketValueInUsdt {} => to_binary(&get_basket_value(deps, &env)?),
     }
 }
 

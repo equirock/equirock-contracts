@@ -15,6 +15,15 @@ pub fn config(deps: Deps<InjectiveQueryWrapper>) -> StdResult<Config> {
     Ok(config)
 }
 
+pub fn get_basket_value(deps: Deps<InjectiveQueryWrapper>, env: &Env) -> StdResult<Uint128> {
+    let config = CONFIG.load(deps.storage)?;
+    let basket = BASKET.load(deps.storage)?;
+
+    let value_in_usdt = basket_value_usdt(&deps.querier, &env, &config, &basket)?;
+
+    Ok(value_in_usdt)
+}
+
 pub fn get_basket_ideal_ratio(
     deps: Deps<InjectiveQueryWrapper>,
     env: &Env,
@@ -86,6 +95,23 @@ pub fn basket_asset_ratio(
     Ok((basket_asset_ratio, price))
 }
 
+pub fn basket_value_usdt(
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
+    env: &Env,
+    config: &Config,
+    basket: &Basket,
+) -> StdResult<Uint128> {
+    let value = basket_value(querier, env, config, basket)?;
+    let value_in_usdt_dec = value
+        .checked_mul(
+            Decimal::from_atomics(1_000_000u128, 0)
+                .map_err(|e| StdError::generic_err(e.to_string()))?,
+        )?
+        .to_uint_floor();
+
+    Ok(value_in_usdt_dec)
+}
+
 pub fn basket_value(
     querier: &QuerierWrapper<InjectiveQueryWrapper>,
     env: &Env,
@@ -143,6 +169,14 @@ pub fn basket_asset_value(
         Decimal::from_atomics(amount, decimals as u32)
             .map_err(|e| StdError::generic_err(e.to_string()))?,
     )?;
+
+    println!(
+        "price {:?}, amount {:?}, decimals {:?}, basket_asset_value {:?}",
+        price.to_string(),
+        amount.to_string(),
+        decimals,
+        basket_asset_value
+    );
 
     Ok(basket_asset_value)
 }

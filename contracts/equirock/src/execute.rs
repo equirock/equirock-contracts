@@ -14,7 +14,7 @@ use injective_math::FPDecimal;
 
 use crate::{
     msg::{CallbackMsg, ExecuteMsg},
-    query::{basket_value, get_basket_ideal_ratio},
+    query::{basket_value_usdt, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
     state::{BASKET, CONFIG, DEPOSIT_PAID_CACHE},
 };
@@ -182,14 +182,14 @@ pub fn deposit(
         }
     }
 
-    let basket_value = basket_value(&deps.querier, &env, &config, &basket)?;
+    let basket_value_in_usdt = basket_value_usdt(&deps.querier, &env, &config, &basket)?;
 
     let after_deposit_msg = WasmMsg::Execute {
         contract_addr: contract.to_owned().into_string(),
         msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterDeposit {
             deposit: asset.amount,
             sender: info.sender,
-            basket_value: basket_value.to_uint_ceil(),
+            basket_value: basket_value_in_usdt,
         }))?,
         funds: vec![],
     };

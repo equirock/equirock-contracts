@@ -584,3 +584,91 @@ fn deposit() {
         panic!("Wrong message type!");
     }
 }
+
+#[test]
+fn query_basket_value() {
+    let current_unix_time = 10_000_000;
+    let mut mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+    let price_feed_inj = PriceFeed::new(
+        PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+        Price {
+            price: 900000000,
+            conf: 10,
+            expo: -8,
+            publish_time: current_unix_time,
+        },
+        Price {
+            price: 800000000,
+            conf: 20,
+            expo: -8,
+            publish_time: current_unix_time,
+        },
+    );
+    let price_feed_atom = PriceFeed::new(
+        PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+        Price {
+            price: 1100000000,
+            conf: 20,
+            expo: -8,
+            publish_time: current_unix_time,
+        },
+        Price {
+            price: 1100000000,
+            conf: 20,
+            expo: -8,
+            publish_time: current_unix_time,
+        },
+    );
+
+    mock_pyth.add_feed(price_feed_inj);
+    mock_pyth.add_feed(price_feed_atom);
+
+    let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
+
+    let msg = InstantiateMsg {
+        etf_token_code_id: 1,
+        etf_token_name: String::from("ER-Strategy-1"),
+        deposit_asset: AssetInfo::NativeToken {
+            denom: String::from(USDT),
+        },
+        pyth_contract_addr: Addr::unchecked(PYTH_CONTRACT_ADDR),
+        basket: Basket {
+            assets: vec![
+                BasketAsset {
+                    asset: Asset {
+                        info: {
+                            AssetInfo::NativeToken {
+                                denom: String::from("inj"),
+                            }
+                        },
+                        amount: Uint128::zero(),
+                    },
+                    pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+                    weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(INJUSDT_MARKET_ID).unwrap(),
+                },
+                BasketAsset {
+                    asset: Asset {
+                        info: {
+                            AssetInfo::NativeToken {
+                                denom: String::from("atom"),
+                            }
+                        },
+                        amount: Uint128::zero(),
+                    },
+                    pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+                    weight: Uint128::from(1u128),
+                    spot_market_id: MarketId::new(ATOMUSDT_MARKET_ID).unwrap(),
+                },
+            ],
+        },
+    };
+    let info = mock_info("creator", &vec![]);
+
+    let _res = instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+
+    let res = query(deps.as_ref(), env, QueryMsg::GetBasketValueInUsdt {}).unwrap();
+    let value: Uint128 = from_binary(&res).unwrap();
+
+    println!("fooo {:?}", value);
+}

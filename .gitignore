@@ -21,3 +21,5 @@ tarpaulin-report.*
 
 packages/*/schema
 contracts/*/schema
+
+scripts/contract-address

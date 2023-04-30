@@ -1,8 +1,8 @@
-CONTRACT_ADDR="inj1tquedxc2myu3en0nx7tn6y2f0d9y935pn4scec"
+CONTRACT_ADDR=$(<./scripts/contract-address)
 
 ADMIN=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
 USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"
-AMOUNT="15000000"
+AMOUNT="1000000"
 
 DEPOSIT_MSG=$(cat <<-END
     {

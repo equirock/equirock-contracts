@@ -29,6 +29,8 @@ pub enum QueryMsg {
     GetConfig {},
     #[returns(Vec<GetBasketAssetIdealRatioResponse>)]
     GetBasketIdealRatio {},
+    #[returns(Uint128)]
+    GetBasketValueInUsdt {},
 }
 
 #[cw_serde]
