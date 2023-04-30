@@ -1,8 +1,8 @@
-CONTRACT_ADDR="inj19z6x5yl45fdcgr5elv6vml2kl7jjpjvd3ys8wu"
+CONTRACT_ADDR="inj1tquedxc2myu3en0nx7tn6y2f0d9y935pn4scec"
 
 ADMIN=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
 USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"
-AMOUNT="1000000"
+AMOUNT="15000000"
 
 DEPOSIT_MSG=$(cat <<-END
     {

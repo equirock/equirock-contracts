@@ -6,7 +6,7 @@ use pyth_sdk_cw::{Price, PriceFeedResponse, PriceIdentifier};
 
 use crate::{
     msg::{FetchPriceResponse, GetBasketAssetIdealRatioResponse},
-    querier::query_price_feed,
+    querier::{query_balance, query_decimals, query_price_feed},
     state::{Basket, BasketAsset, Config, BASKET, CONFIG},
 };
 
@@ -136,7 +136,13 @@ pub fn basket_asset_value(
     )?;
     let price = pyth_price(fetch_price.current_price)?;
 
-    let basket_asset_value = price.checked_mul(Decimal::raw(basket_asset.asset.amount.into()))?;
+    let amount = query_balance(querier, &basket_asset.asset.info, &env.contract.address)?;
+    let decimals = query_decimals(querier, &basket_asset.asset.info);
+
+    let basket_asset_value = price.checked_mul(
+        Decimal::from_atomics(amount, decimals as u32)
+            .map_err(|e| StdError::generic_err(e.to_string()))?,
+    )?;
 
     Ok(basket_asset_value)
 }

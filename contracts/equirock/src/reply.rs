@@ -70,7 +70,7 @@ pub fn handle_order(
     let price = FPDecimal::from_str(&trade_data.price)? / dec_scale_factor;
     let fee = FPDecimal::from_str(&trade_data.fee)? / dec_scale_factor;
 
-    let paid = quantity * price + fee;
+    let paid = (quantity * price + fee).add(1);
 
     DEPOSIT_PAID_CACHE.update::<_, StdError>(deps.storage, |p| Ok(p.checked_add(paid.into())?))?;
 

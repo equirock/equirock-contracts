@@ -2,37 +2,47 @@ use astroport::asset::AssetInfo;
 use cosmwasm_std::{Addr, BankMsg, Coin, CosmosMsg, DepsMut, Env, Response, StdError, Uint128};
 use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
-use crate::state::{CONFIG, DEPOSIT_PAID_CACHE};
+use crate::{
+    querier::query_token_info,
+    state::{CONFIG, DEPOSIT_PAID_CACHE},
+};
 
 pub fn after_deposit(
     deps: DepsMut<InjectiveQueryWrapper>,
     _env: Env,
     deposit: Uint128,
     sender: Addr,
-    _basket_value: Uint128,
+    basket_value: Uint128,
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
-    let paid = DEPOSIT_PAID_CACHE.load(deps.storage)?;
-    let leftover = deposit.checked_rem(paid)?;
+    let paid: Uint128 = DEPOSIT_PAID_CACHE.load(deps.storage)?;
+    let leftover = deposit.checked_rem(paid).unwrap_or(Uint128::zero());
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
 
     if let AssetInfo::NativeToken { denom } = config.deposit_asset {
-        let leftover_coins = Coin::new(u128::from(leftover), denom);
+        if leftover.gt(&Uint128::zero()) {
+            let leftover_coins = Coin::new(u128::from(leftover), denom);
 
-        let send_message = BankMsg::Send {
-            to_address: sender.into_string(),
-            amount: vec![leftover_coins],
-        };
+            let send_message = BankMsg::Send {
+                to_address: sender.into_string(),
+                amount: vec![leftover_coins],
+            };
 
-        messages.push(send_message.into());
+            messages.push(send_message.into());
+        }
     }
+
+    let liquidity_token = deps.api.addr_humanize(&config.lp_token)?;
+    let total_share = query_token_info(&deps.querier, &liquidity_token)?.total_supply;
 
     Ok(Response::new()
         .add_attributes(vec![
             ("method", "after_deposit".to_string()),
             ("deposit", deposit.to_string()),
             ("paid", paid.to_string()),
+            ("total_share", total_share.to_string()),
+            ("basket_value", basket_value.to_string()),
         ])
         .add_messages(messages))
 }

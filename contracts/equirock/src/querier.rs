@@ -1,12 +1,14 @@
 use astroport::asset::AssetInfo;
 use cosmwasm_std::{to_binary, Addr, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery};
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
-use injective_cosmwasm::InjectiveQueryWrapper;
+use injective_cosmwasm::{InjectiveQuerier, InjectiveQueryWrapper, QueryDenomDecimalResponse};
 use pyth_sdk_cw::{PriceFeedResponse, PriceIdentifier, QueryMsg};
+
+const DEFAULT_UNKNOWN_DECIMALS: u64 = 8u64;
 
 pub fn query_token_info(
     querier: &QuerierWrapper<InjectiveQueryWrapper>,
-    contract_addr: Addr,
+    contract_addr: &Addr,
 ) -> StdResult<TokenInfoResponse> {
     let token_info: TokenInfoResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: contract_addr.to_string(),
@@ -14,6 +16,33 @@ pub fn query_token_info(
     }))?;
 
     Ok(token_info)
+}
+
+pub fn query_decimals(
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
+    asset_info: &AssetInfo,
+) -> u64 {
+    match asset_info {
+        AssetInfo::Token { contract_addr, .. } => query_token_info(querier, contract_addr)
+            .and_then(|i| Ok(i.decimals as u64))
+            .unwrap_or(DEFAULT_UNKNOWN_DECIMALS),
+        AssetInfo::NativeToken { denom } => query_native_decimals(querier, &denom),
+    }
+}
+
+pub fn query_native_decimals(querier: &QuerierWrapper<InjectiveQueryWrapper>, denom: &str) -> u64 {
+    let injective_querier = InjectiveQuerier::new(&querier);
+
+    return if denom == "inj" {
+        18u64
+    } else {
+        injective_querier
+            .query_denom_decimal(&denom.to_string())
+            .unwrap_or(QueryDenomDecimalResponse {
+                decimals: DEFAULT_UNKNOWN_DECIMALS,
+            })
+            .decimals
+    };
 }
 
 pub fn query_native_balance(
@@ -48,10 +77,10 @@ pub fn query_token_balance(
 
 pub fn query_balance(
     querier: &QuerierWrapper<InjectiveQueryWrapper>,
-    asset: &AssetInfo,
+    asset_info: &AssetInfo,
     account_addr: &Addr,
 ) -> StdResult<Uint128> {
-    match asset {
+    match asset_info {
         AssetInfo::Token { contract_addr, .. } => {
             query_token_balance(querier, contract_addr, account_addr)
         }

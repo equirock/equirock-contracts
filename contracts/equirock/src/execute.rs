@@ -14,7 +14,6 @@ use injective_math::FPDecimal;
 
 use crate::{
     msg::{CallbackMsg, ExecuteMsg},
-    querier::query_token_info,
     query::{basket_value, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
     state::{BASKET, CONFIG, DEPOSIT_PAID_CACHE},
@@ -129,15 +128,12 @@ pub fn deposit(
 
     let basket = BASKET.load(deps.storage)?;
 
-    let liquidity_token = deps.api.addr_humanize(&config.lp_token)?;
-    let _total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
-
     let contract = &env.contract.address;
 
     let asset_ideals = get_basket_ideal_ratio(deps.as_ref(), &env)?;
 
-    let _deposit_without_fee =
-        Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
+    // let _deposit_without_fee =
+    //     Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
 
     let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
     let slippage = Decimal::from_ratio(1u128, 100u128);
@@ -170,6 +166,7 @@ pub fn deposit(
                 asset_ideal.ratio.checked_mul(
                     Decimal::from_atomics(asset.amount, quote_decimals as u32)
                         .map_err(|e| StdError::generic_err(e.to_string()))?,
+                    // .checked_mul(Decimal::from_str("0.998")?)?,
                 )?,
                 &market,
                 base_decimals,
