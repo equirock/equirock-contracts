@@ -36,33 +36,21 @@ INSTANTIATE_MSG=$(cat <<-END
             "asset": {
               "info": {
                 "native_token": {
-                  "denom": "inj"
+                  "denom": "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom"
                 }
               },
               "amount": "0"
             },
             "weight": "1",
-            "pyth_price_feed": "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",
-            "spot_market_id": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"
+            "pyth_price_feed": "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3",
+            "spot_market_id": "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15"
           }]
         }
     }
 END
 )
 
-# {
-#             "asset": {
-#               "info": {
-#                 "native_token": {
-#                   "denom": "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom"
-#                 }
-#               },
-#               "amount": "0"
-#             },
-#             "weight": "1",
-#             "pyth_price_feed": "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3",
-#             "spot_market_id": "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15"
-#           }
+
 
 MSG=$(printf "$INSTANTIATE_MSG" "$CW20_CODE_ID" "$ETF_TOKEN_NAME" "$USDT")
 
