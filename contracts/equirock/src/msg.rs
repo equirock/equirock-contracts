@@ -1,6 +1,7 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal, Uint128};
+use cw20::Cw20ReceiveMsg;
 use pyth_sdk_cw::Price;
 
 use crate::state::{Basket, BasketAsset, Config};
@@ -19,6 +20,13 @@ pub enum ExecuteMsg {
     UpdateConfig {},
     Deposit { asset: Asset },
     Callback(CallbackMsg),
+    Receive(Cw20ReceiveMsg),
+}
+
+#[cw_serde]
+pub enum Cw20HookMsg {
+    /// Withdraws a given amount from the vault.
+    Withdraw {},
 }
 
 #[cw_serde]

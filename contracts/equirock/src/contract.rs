@@ -14,6 +14,7 @@ use crate::error::ContractError;
 use crate::execute::{deposit, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::query::{config, get_basket_ideal_ratio, get_basket_value};
+use crate::receive::receive;
 use crate::reply::{handle_lp_init, handle_order, ATOMIC_ORDER_REPLY_ID, INSTANTIATE_REPLY_ID};
 use crate::state::{Config, BASKET, CONFIG};
 
@@ -94,6 +95,7 @@ pub fn execute(
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
         ExecuteMsg::Callback(msg) => callback(deps, env, info, msg),
+        ExecuteMsg::Receive(msg) => receive(deps, env, info, msg),
     }
 }
 

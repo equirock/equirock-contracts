@@ -8,6 +8,7 @@ pub mod callback;
 pub mod msg;
 pub mod querier;
 pub mod query;
+pub mod receive;
 pub mod reply;
 pub mod response;
 pub mod state;
