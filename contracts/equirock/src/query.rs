@@ -170,14 +170,6 @@ pub fn basket_asset_value(
             .map_err(|e| StdError::generic_err(e.to_string()))?,
     )?;
 
-    println!(
-        "price {:?}, amount {:?}, decimals {:?}, basket_asset_value {:?}",
-        price.to_string(),
-        amount.to_string(),
-        decimals,
-        basket_asset_value
-    );
-
     Ok(basket_asset_value)
 }
 

@@ -7,16 +7,17 @@ use cosmwasm_std::{
 };
 use injective_cosmwasm::{
     create_spot_market_order_msg, get_default_subaccount_id_for_checked_address,
-    InjectiveMsgWrapper, InjectiveQuerier, InjectiveQueryWrapper, MarketId, OrderType,
-    QueryDenomDecimalResponse, SpotMarket, SpotOrder, SubaccountId,
+    InjectiveMsgWrapper, InjectiveQuerier, InjectiveQueryWrapper, MarketId, OrderType, SpotMarket,
+    SpotOrder, SubaccountId,
 };
 use injective_math::FPDecimal;
 
 use crate::{
     msg::{CallbackMsg, ExecuteMsg},
+    querier::query_decimals,
     query::{basket_value_usdt, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
-    state::{BASKET, CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, BASKET, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
 };
 
 pub fn update_config(
@@ -74,18 +75,18 @@ pub fn spot_order(
     market: &SpotMarket,
     base_decimals: u64,
     quote_decimals: u64,
+    order_type: OrderType,
     subaccount_id: &SubaccountId,
     sender: &Addr,
 ) -> StdResult<CosmosMsg<InjectiveMsgWrapper>> {
-    let slippage_perc = slippage.checked_add(Decimal::one())?;
-    let price_s = price.checked_mul(slippage_perc)?;
+    let price_s = price.checked_mul(slippage)?;
 
     let price_scale_factor = FPDecimal::from(10_i128.pow((base_decimals - quote_decimals) as u32));
     let mut price_fp = FPDecimal::from_str(&price_s.to_string())?.div(price_scale_factor);
     price_fp = market.min_price_tick_size * (price_fp.div(market.min_price_tick_size)).int();
 
     let quantity_s = quantity
-        .checked_div(slippage_perc)
+        .checked_div(slippage)
         .map_err(|e| StdError::GenericErr { msg: e.to_string() })?;
 
     let quantity_scale_factor = FPDecimal::from(10_i128.pow(base_decimals as u32));
@@ -96,7 +97,7 @@ pub fn spot_order(
     let order = SpotOrder::new(
         price_fp,
         quantity_fp,
-        OrderType::BuyAtomic,
+        order_type,
         &market.market_id,
         subaccount_id.to_owned(),
         Some(sender.to_owned()),
@@ -124,6 +125,7 @@ pub fn deposit(
 
     asset.assert_sent_native_token_balance(&info)?;
 
+    CLOB_CACHE.save(deps.storage, &ClobCache::new())?;
     DEPOSIT_PAID_CACHE.save(deps.storage, &Uint128::zero())?;
 
     let basket = BASKET.load(deps.storage)?;
@@ -136,7 +138,7 @@ pub fn deposit(
     //     Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
 
     let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
-    let slippage = Decimal::from_ratio(1u128, 100u128);
+    let slippage = Decimal::from_ratio(1u128, 100u128).checked_add(Decimal::one())?;
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
     let injective_querier = InjectiveQuerier::new(&deps.querier);
 
@@ -146,15 +148,12 @@ pub fn deposit(
             injective_querier.query_spot_market(&asset_ideal.basket_asset.spot_market_id)?;
         if let Some(market) = market.market {
             log.push(format!("{:?}", market));
-            let base_decimals = if market.base_denom == "inj" {
-                18u64
-            } else {
-                injective_querier
-                    .query_denom_decimal(&market.base_denom)
-                    .unwrap_or(QueryDenomDecimalResponse { decimals: 8u64 })
-                    .decimals
-            };
-            // let quote_decimals = denom_decimals[1].decimals;
+            let base_decimals = query_decimals(
+                &deps.querier,
+                &AssetInfo::NativeToken {
+                    denom: market.base_denom.to_owned(),
+                },
+            );
             let quote_decimals = 6u64; // USDT
 
             log.push(format!("base_decimals {:?}", base_decimals));
@@ -171,6 +170,7 @@ pub fn deposit(
                 &market,
                 base_decimals,
                 quote_decimals,
+                OrderType::BuyAtomic,
                 &subaccount_id,
                 contract,
             )?;
@@ -199,25 +199,4 @@ pub fn deposit(
         .add_attribute("log", format!("{:?}", log))
         .add_submessages(submessages)
         .add_message(after_deposit_msg))
-
-    // let spot_market = injective_querier.query_spot_market(&basket.assets[0].spot_market_id)?;
-
-    // if let Some(market) = spot_market.market {
-    //     market.min_quantity_tick_size;
-    // }
-
-    // let order_message = SubMsg::reply_on_success(
-    //     buy_inj_spot_order(
-    //         &MarketId::new("0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe")?,
-    //         FPDecimal::from_str("0.000000000007743000")?,
-    //         FPDecimal::from_str("14000000000000000.000000000000000000")?,
-    //         &subaccount_id,
-    //         contract,
-    //     ),
-    //     ATOMIC_ORDER_REPLY_ID,
-    // );
-
-    // Ok(Response::new()
-    //     .add_attribute("action", "deposit")
-    //     .add_submessage(order_message))
 }

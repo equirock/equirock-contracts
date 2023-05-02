@@ -1,5 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use injective_cosmwasm::MarketId;
+use injective_math::FPDecimal;
 use pyth_sdk_cw::PriceIdentifier;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -29,5 +30,23 @@ pub struct Basket {
     pub assets: Vec<BasketAsset>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ClobCache {
+    pub quantity: FPDecimal,
+    pub price: FPDecimal,
+    pub fee: FPDecimal,
+}
+
+impl ClobCache {
+    pub fn new() -> Self {
+        ClobCache {
+            quantity: FPDecimal::zero(),
+            price: FPDecimal::zero(),
+            fee: FPDecimal::zero(),
+        }
+    }
+}
+
 pub const BASKET: Item<Basket> = Item::new("basket");
+pub const CLOB_CACHE: Item<ClobCache> = Item::new("clob-cache");
 pub const DEPOSIT_PAID_CACHE: Item<Uint128> = Item::new("deposit-paid-cache");

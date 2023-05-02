@@ -64,4 +64,7 @@ pub enum CallbackMsg {
         sender: Addr,
         basket_value: Uint128,
     },
+    AfterWithdraw {
+        sender: Addr,
+    },
 }

@@ -7,7 +7,7 @@ use protobuf::Message;
 
 use crate::{
     response::MsgInstantiateContractResponse,
-    state::{CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
     ContractError,
 };
 
@@ -72,6 +72,13 @@ pub fn handle_order(
 
     let paid = (quantity * price + fee).add(1);
 
+    CLOB_CACHE.update::<_, StdError>(deps.storage, |p| {
+        Ok(ClobCache {
+            quantity: p.quantity + quantity,
+            price: p.price + price,
+            fee: p.fee + fee,
+        })
+    })?;
     DEPOSIT_PAID_CACHE.update::<_, StdError>(deps.storage, |p| Ok(p.checked_add(paid.into())?))?;
 
     // let config = STATE.load(deps.storage)?;

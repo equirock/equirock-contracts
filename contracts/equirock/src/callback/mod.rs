@@ -2,6 +2,10 @@ mod after_deposit;
 
 pub use after_deposit::after_deposit;
 
+mod after_withdraw;
+
+pub use after_withdraw::after_withdraw;
+
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError};
 use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
@@ -25,6 +29,7 @@ pub fn callback(
             sender,
             basket_value,
         } => after_deposit(deps, env, deposit, sender, basket_value),
+        CallbackMsg::AfterWithdraw { sender } => after_withdraw(deps, env, sender),
     }
 }
 
@@ -39,7 +44,7 @@ mod test {
     use crate::{
         contract::execute,
         msg::{CallbackMsg, ExecuteMsg},
-        state::{Config, CONFIG, DEPOSIT_PAID_CACHE},
+        state::{ClobCache, Config, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
         tests::{setup_test, CONTRACT_ADDR, LP_TOKEN_ADDR, USDT},
     };
 
@@ -93,13 +98,13 @@ mod test {
             .save(&mut deps.storage, &Uint128::one())
             .unwrap();
 
+        CLOB_CACHE
+            .save(&mut deps.storage, &ClobCache::new())
+            .unwrap();
+
         println!(
             "{:?}",
             execute(deps.as_mut(), env.to_owned(), auth_info, msg).unwrap()
         );
-        // assert_eq!(
-        //     execute(deps.as_mut(), env.to_owned(), auth_info, msg).is_ok(),
-        //     true
-        // );
     }
 }

@@ -669,6 +669,4 @@ fn query_basket_value() {
 
     let res = query(deps.as_ref(), env, QueryMsg::GetBasketValueInUsdt {}).unwrap();
     let value: Uint128 = from_binary(&res).unwrap();
-
-    println!("fooo {:?}", value);
 }

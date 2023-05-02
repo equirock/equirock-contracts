@@ -7,7 +7,7 @@ use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
 use crate::{
     querier::query_token_info,
-    state::{CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
 };
 
 pub fn after_deposit(
@@ -18,7 +18,11 @@ pub fn after_deposit(
     basket_value_before_deposit: Uint128,
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
-    let paid: Uint128 = DEPOSIT_PAID_CACHE.load(deps.storage)?;
+    // let paid: Uint128 = DEPOSIT_PAID_CACHE.load(deps.storage)?;
+    let clob_cache: ClobCache = CLOB_CACHE.load(deps.storage)?;
+    let paid: Uint128 = (clob_cache.quantity * clob_cache.price + clob_cache.fee)
+        .add(1)
+        .into();
     let leftover = deposit.checked_rem(paid).unwrap_or(Uint128::zero());
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
