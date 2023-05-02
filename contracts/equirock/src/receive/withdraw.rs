@@ -46,10 +46,9 @@ pub fn withdraw(
     // } // deduct protocol fees
     // .checked_sub(collected_protocol_fees.amount)?;
 
-    let total_share: TokenInfoResponse = deps.querier.query_wasm_smart(
-        deps.api.addr_humanize(&config.lp_token)?,
-        &Cw20QueryMsg::TokenInfo {},
-    )?;
+    let total_share: TokenInfoResponse = deps
+        .querier
+        .query_wasm_smart(&config.lp_token, &Cw20QueryMsg::TokenInfo {})?;
 
     let basket = BASKET.load(deps.storage)?;
     let withdraw_ratio = Decimal::from_ratio(amount, total_share.total_supply);
@@ -119,7 +118,7 @@ pub fn withdraw(
     };
 
     let burn_lp_tokens_msg = WasmMsg::Execute {
-        contract_addr: deps.api.addr_humanize(&config.lp_token)?.into_string(),
+        contract_addr: config.lp_token.into_string(),
         funds: vec![],
         msg: to_binary(&Cw20ExecuteMsg::Burn { amount })?,
     };

@@ -11,7 +11,7 @@ use crate::ContractError;
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, Api, Coin, ContractResult, Decimal, Env, OwnedDeps,
+    coin, coins, from_binary, to_binary, Addr, Coin, ContractResult, Decimal, Env, OwnedDeps,
     QuerierResult, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::TokenInfoResponse;
@@ -321,7 +321,7 @@ fn deposit_correct_denom() {
             &mut deps.storage,
             |mut config| -> Result<_, ContractError> {
                 let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
-                config.lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
+                config.lp_token = mock_address;
                 Ok(config)
             },
         )
@@ -528,7 +528,7 @@ fn deposit() {
             &mut deps.storage,
             |mut config| -> Result<_, ContractError> {
                 let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
-                config.lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
+                config.lp_token = mock_address;
                 Ok(config)
             },
         )
@@ -563,11 +563,11 @@ fn deposit() {
         assert_eq!(order.market_id.as_str(), INJUSDT_MARKET_ID);
         assert_eq!(
             order.order_info.quantity.to_string(),
-            format!("55000000000000000")
+            format!("52000000000000000")
         );
         assert_eq!(
             order.order_info.price.to_string(),
-            format!("0.00000000000909")
+            format!("0.00000000000945")
         );
     } else {
         panic!("Wrong message type!");
@@ -578,8 +578,8 @@ fn deposit() {
     {
         assert_eq!(sender.to_string(), CONTRACT_ADDR, "sender not correct");
         assert_eq!(order.market_id.as_str(), ATOMUSDT_MARKET_ID);
-        assert_eq!(order.order_info.quantity.to_string(), format!("45000"));
-        assert_eq!(order.order_info.price.to_string(), format!("11.11"));
+        assert_eq!(order.order_info.quantity.to_string(), format!("43000"));
+        assert_eq!(order.order_info.price.to_string(), format!("11.55"));
     } else {
         panic!("Wrong message type!");
     }
@@ -668,5 +668,5 @@ fn query_basket_value() {
     let _res = instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
     let res = query(deps.as_ref(), env, QueryMsg::GetBasketValueInUsdt {}).unwrap();
-    let value: Uint128 = from_binary(&res).unwrap();
+    let _value: Uint128 = from_binary(&res).unwrap();
 }

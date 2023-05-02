@@ -5,12 +5,12 @@ use pyth_sdk_cw::PriceIdentifier;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, CanonicalAddr, Uint128};
+use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::Item;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
-    pub lp_token: CanonicalAddr,
+    pub lp_token: Addr,
     pub deposit_asset: AssetInfo,
     pub pyth_contract_addr: Addr,
 }

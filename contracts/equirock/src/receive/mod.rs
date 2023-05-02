@@ -16,7 +16,7 @@ pub fn receive(
 ) -> StdResult<Response<InjectiveMsgWrapper>> {
     let config = CONFIG.load(deps.storage)?;
 
-    if info.sender != deps.api.addr_humanize(&config.lp_token)? {
+    if info.sender != config.lp_token {
         return Err(StdError::GenericErr {
             msg: "Unauthorized".to_string(),
         });
@@ -32,14 +32,14 @@ mod test {
     use std::time::Duration;
 
     use astroport::asset::AssetInfo;
-    use cosmwasm_std::{coins, testing::mock_info, to_binary, Addr, Api, Coin, Uint128};
+    use cosmwasm_std::{coins, testing::mock_info, to_binary, Addr, Coin, Uint128};
     use pyth_sdk_cw::testing::MockPyth;
 
     use crate::{
         contract::execute,
-        msg::{CallbackMsg, Cw20HookMsg, ExecuteMsg},
-        state::{Config, BASKET, CONFIG, DEPOSIT_PAID_CACHE},
-        tests::{setup_test, CONTRACT_ADDR, LP_TOKEN_ADDR, USDT},
+        msg::{Cw20HookMsg, ExecuteMsg},
+        state::{Config, BASKET, CONFIG},
+        tests::{setup_test, LP_TOKEN_ADDR, USDT},
     };
 
     #[test]
@@ -50,13 +50,12 @@ mod test {
         let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
 
         let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
-        let lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
 
         CONFIG
             .save(
                 &mut deps.storage,
                 &Config {
-                    lp_token: lp_token,
+                    lp_token: mock_address,
                     deposit_asset: AssetInfo::NativeToken {
                         denom: USDT.to_owned(),
                     },
@@ -82,7 +81,6 @@ mod test {
         let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
 
         let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
-        let lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
 
         BASKET
             .save(&mut deps.storage, &crate::state::Basket { assets: vec![] })
@@ -92,7 +90,7 @@ mod test {
             .save(
                 &mut deps.storage,
                 &Config {
-                    lp_token: lp_token,
+                    lp_token: mock_address,
                     deposit_asset: AssetInfo::NativeToken {
                         denom: USDT.to_owned(),
                     },

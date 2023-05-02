@@ -38,7 +38,7 @@ mod test {
     use std::time::Duration;
 
     use astroport::asset::AssetInfo;
-    use cosmwasm_std::{coins, testing::mock_info, Addr, Api, Coin, Uint128};
+    use cosmwasm_std::{coins, testing::mock_info, Addr, Coin, Uint128};
     use pyth_sdk_cw::testing::MockPyth;
 
     use crate::{
@@ -79,13 +79,12 @@ mod test {
         });
 
         let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
-        let lp_token = deps.api.addr_canonicalize(&mock_address.as_str()).unwrap();
 
         CONFIG
             .save(
                 &mut deps.storage,
                 &Config {
-                    lp_token: lp_token,
+                    lp_token: mock_address,
                     deposit_asset: AssetInfo::NativeToken {
                         denom: USDT.to_owned(),
                     },

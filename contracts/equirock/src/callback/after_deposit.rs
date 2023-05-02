@@ -7,7 +7,7 @@ use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
 use crate::{
     querier::query_token_info,
-    state::{ClobCache, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, CLOB_CACHE, CONFIG},
 };
 
 pub fn after_deposit(
@@ -18,7 +18,6 @@ pub fn after_deposit(
     basket_value_before_deposit: Uint128,
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
-    // let paid: Uint128 = DEPOSIT_PAID_CACHE.load(deps.storage)?;
     let clob_cache: Vec<ClobCache> = CLOB_CACHE.load(deps.storage)?;
     let paid: Uint128 = clob_cache.into_iter().try_fold(Uint128::zero(), |acc, c| {
         acc.checked_add((c.quantity * c.price + c.fee).add(1).into())
@@ -41,7 +40,7 @@ pub fn after_deposit(
         }
     }
 
-    let liquidity_token = deps.api.addr_humanize(&config.lp_token)?;
+    let liquidity_token = config.lp_token;
     let total_share = query_token_info(&deps.querier, &liquidity_token)?.total_supply;
 
     let lp_amount = if total_share.is_zero() {

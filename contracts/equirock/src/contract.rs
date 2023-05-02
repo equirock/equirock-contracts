@@ -2,8 +2,8 @@ use astroport::asset::AssetInfo;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response,
-    StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError,
+    StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw20_base::msg::InstantiateMsg as CW20InstantiateMsg;
@@ -36,7 +36,7 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let config = Config {
-        lp_token: CanonicalAddr::from(vec![]),
+        lp_token: Addr::unchecked(""),
         deposit_asset: msg.deposit_asset,
         pyth_contract_addr: msg.pyth_contract_addr,
     };

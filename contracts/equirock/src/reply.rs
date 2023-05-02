@@ -7,7 +7,7 @@ use protobuf::Message;
 
 use crate::{
     response::MsgInstantiateContractResponse,
-    state::{ClobCache, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, CLOB_CACHE, CONFIG},
     ContractError,
 };
 
@@ -28,9 +28,8 @@ pub fn handle_lp_init(
         })?;
     let liquidity_token = res.address;
 
-    let api = deps.api;
     CONFIG.update(deps.storage, |mut config| -> StdResult<_> {
-        config.lp_token = api.addr_canonicalize(&liquidity_token)?;
+        config.lp_token = deps.api.addr_validate(&liquidity_token)?;
         Ok(config)
     })?;
 
@@ -70,8 +69,6 @@ pub fn handle_order(
     let price = FPDecimal::from_str(&trade_data.price)? / dec_scale_factor;
     let fee = FPDecimal::from_str(&trade_data.fee)? / dec_scale_factor;
 
-    let paid = (quantity * price + fee).add(1);
-
     CLOB_CACHE.update::<_, StdError>(deps.storage, |mut clob_cache| {
         clob_cache.push(ClobCache {
             quantity,
@@ -81,7 +78,6 @@ pub fn handle_order(
 
         Ok(clob_cache)
     })?;
-    DEPOSIT_PAID_CACHE.update::<_, StdError>(deps.storage, |p| Ok(p.checked_add(paid.into())?))?;
 
     // let config = STATE.load(deps.storage)?;
     // let contract_address = env.contract.address;
