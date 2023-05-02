@@ -12,8 +12,14 @@ pub fn after_withdraw(
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
 
-    let clob_cache: ClobCache = CLOB_CACHE.load(deps.storage)?;
-    let received: Uint128 = (clob_cache.quantity * clob_cache.price - clob_cache.fee).into();
+    let clob_cache: Vec<ClobCache> = CLOB_CACHE.load(deps.storage)?;
+
+    let received: Uint128 = clob_cache
+        .to_owned()
+        .into_iter()
+        .try_fold(Uint128::zero(), |acc, c| {
+            acc.checked_add((c.quantity * c.price - c.fee).add(1).into())
+        })?;
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
 

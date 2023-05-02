@@ -48,5 +48,5 @@ impl ClobCache {
 }
 
 pub const BASKET: Item<Basket> = Item::new("basket");
-pub const CLOB_CACHE: Item<ClobCache> = Item::new("clob-cache");
+pub const CLOB_CACHE: Item<Vec<ClobCache>> = Item::new("clob-cache");
 pub const DEPOSIT_PAID_CACHE: Item<Uint128> = Item::new("deposit-paid-cache");

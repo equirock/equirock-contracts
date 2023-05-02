@@ -19,10 +19,11 @@ pub fn after_deposit(
 ) -> Result<Response<InjectiveMsgWrapper>, StdError> {
     let config = CONFIG.load(deps.storage)?;
     // let paid: Uint128 = DEPOSIT_PAID_CACHE.load(deps.storage)?;
-    let clob_cache: ClobCache = CLOB_CACHE.load(deps.storage)?;
-    let paid: Uint128 = (clob_cache.quantity * clob_cache.price + clob_cache.fee)
-        .add(1)
-        .into();
+    let clob_cache: Vec<ClobCache> = CLOB_CACHE.load(deps.storage)?;
+    let paid: Uint128 = clob_cache.into_iter().try_fold(Uint128::zero(), |acc, c| {
+        acc.checked_add((c.quantity * c.price + c.fee).add(1).into())
+    })?;
+
     let leftover = deposit.checked_rem(paid).unwrap_or(Uint128::zero());
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];

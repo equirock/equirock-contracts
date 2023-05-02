@@ -99,7 +99,7 @@ mod test {
             .unwrap();
 
         CLOB_CACHE
-            .save(&mut deps.storage, &ClobCache::new())
+            .save(&mut deps.storage, &vec![ClobCache::new()])
             .unwrap();
 
         println!(

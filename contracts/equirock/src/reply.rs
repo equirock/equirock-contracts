@@ -72,12 +72,14 @@ pub fn handle_order(
 
     let paid = (quantity * price + fee).add(1);
 
-    CLOB_CACHE.update::<_, StdError>(deps.storage, |p| {
-        Ok(ClobCache {
-            quantity: p.quantity + quantity,
-            price: p.price + price,
-            fee: p.fee + fee,
-        })
+    CLOB_CACHE.update::<_, StdError>(deps.storage, |mut clob_cache| {
+        clob_cache.push(ClobCache {
+            quantity,
+            price,
+            fee,
+        });
+
+        Ok(clob_cache)
     })?;
     DEPOSIT_PAID_CACHE.update::<_, StdError>(deps.storage, |p| Ok(p.checked_add(paid.into())?))?;
 
