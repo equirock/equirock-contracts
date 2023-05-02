@@ -1,4 +1,8 @@
-./scripts/update_pyth.sh
+if [ $# -eq 0 ];then :;
+else
+    echo "Updating pyth"
+    ./scripts/update_pyth.sh
+fi
 
 SENDER=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
 USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"

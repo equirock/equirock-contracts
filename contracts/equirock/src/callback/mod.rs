@@ -44,7 +44,7 @@ mod test {
     use crate::{
         contract::execute,
         msg::{CallbackMsg, ExecuteMsg},
-        state::{ClobCache, Config, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
+        state::{ClobCache, Config, CLOB_CACHE, CONFIG},
         tests::{setup_test, CONTRACT_ADDR, LP_TOKEN_ADDR, USDT},
     };
 
@@ -91,10 +91,6 @@ mod test {
                     pyth_contract_addr: Addr::unchecked("pyth-contract-addr"),
                 },
             )
-            .unwrap();
-
-        DEPOSIT_PAID_CACHE
-            .save(&mut deps.storage, &Uint128::one())
             .unwrap();
 
         CLOB_CACHE

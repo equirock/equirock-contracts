@@ -24,17 +24,17 @@ use injective_math::FPDecimal;
 use pyth_sdk_cw::testing::MockPyth;
 use pyth_sdk_cw::{Price, PriceFeed, PriceIdentifier, UnixTimestamp};
 
-const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
-const PRICE_ID_INJ: &str = "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3";
-const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3";
+pub const PYTH_CONTRACT_ADDR: &str = "pyth_contract_addr";
+pub const PRICE_ID_INJ: &str = "2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3";
+pub const PRICE_ID_ATOM: &str = "61226d39beea19d334f17c2febce27e12646d84675924ebb02b9cdaea68727e3";
 
 pub const LP_TOKEN_ADDR: &str = "lp-token-0001";
 pub const USDT: &str = "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7";
 pub const ATOM: &str = "factory/inj17vytdwqczqz72j65saukplrktd4gyfme5agf6c/atom";
 
-const INJUSDT_MARKET_ID: &str =
+pub const INJUSDT_MARKET_ID: &str =
     "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe";
-const ATOMUSDT_MARKET_ID: &str =
+pub const ATOMUSDT_MARKET_ID: &str =
     "0x491ee4fae7956dd72b6a97805046ffef65892e1d3254c559c18056a519b2ca15";
 
 pub const CONTRACT_ADDR: &str = "inj1qge3zfgncdyssvqhl7az3gh93q7sqffm4rje87";

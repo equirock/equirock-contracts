@@ -17,7 +17,7 @@ use crate::{
     querier::query_decimals,
     query::{basket_value_usdt, get_basket_ideal_ratio},
     reply::ATOMIC_ORDER_REPLY_ID,
-    state::{ClobCache, BASKET, CLOB_CACHE, CONFIG, DEPOSIT_PAID_CACHE},
+    state::{ClobCache, BASKET, CLOB_CACHE, CONFIG},
 };
 
 pub fn update_config(
@@ -85,9 +85,13 @@ pub fn spot_order(
     let mut price_fp = FPDecimal::from_str(&price_s.to_string())?.div(price_scale_factor);
     price_fp = market.min_price_tick_size * (price_fp.div(market.min_price_tick_size)).int();
 
-    let quantity_s = quantity
-        .checked_div(slippage)
-        .map_err(|e| StdError::GenericErr { msg: e.to_string() })?;
+    let quantity_s = if slippage.gt(&Decimal::one()) {
+        quantity
+            .checked_div(slippage)
+            .map_err(|e| StdError::GenericErr { msg: e.to_string() })?
+    } else {
+        quantity
+    };
 
     let quantity_scale_factor = FPDecimal::from(10_i128.pow(base_decimals as u32));
     let mut quantity_fp = FPDecimal::from_str(&quantity_s.to_string())? * quantity_scale_factor;
@@ -126,7 +130,6 @@ pub fn deposit(
     asset.assert_sent_native_token_balance(&info)?;
 
     CLOB_CACHE.save(deps.storage, &vec![ClobCache::new()])?;
-    DEPOSIT_PAID_CACHE.save(deps.storage, &Uint128::zero())?;
 
     let basket = BASKET.load(deps.storage)?;
 

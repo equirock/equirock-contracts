@@ -15,7 +15,7 @@ use crate::{
     querier::{query_balance, query_decimals},
     query::{basket_asset_price, pyth_price},
     reply::ATOMIC_ORDER_REPLY_ID,
-    state::{BASKET, CONFIG},
+    state::{ClobCache, BASKET, CLOB_CACHE, CONFIG},
 };
 
 pub fn withdraw(
@@ -50,12 +50,14 @@ pub fn withdraw(
         .querier
         .query_wasm_smart(&config.lp_token, &Cw20QueryMsg::TokenInfo {})?;
 
+    CLOB_CACHE.save(deps.storage, &vec![ClobCache::new()])?;
+
     let basket = BASKET.load(deps.storage)?;
     let withdraw_ratio = Decimal::from_ratio(amount, total_share.total_supply);
 
     let contract = &env.contract.address;
     let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
-    let slippage = Decimal::one().checked_rem(Decimal::from_ratio(1u128, 100u128))?;
+    let slippage = Decimal::one().checked_sub(Decimal::from_ratio(5u128, 100u128))?;
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
     let injective_querier = InjectiveQuerier::new(&deps.querier);
 
@@ -111,7 +113,7 @@ pub fn withdraw(
         }
     }
 
-    let after_deposit_msg = WasmMsg::Execute {
+    let after_withdraw_msg = WasmMsg::Execute {
         contract_addr: contract.to_owned().into_string(),
         msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterWithdraw { sender }))?,
         funds: vec![],
@@ -124,9 +126,132 @@ pub fn withdraw(
     };
 
     let messages: Vec<CosmosMsg<InjectiveMsgWrapper>> =
-        vec![after_deposit_msg.into(), burn_lp_tokens_msg.into()];
+        vec![after_withdraw_msg.into(), burn_lp_tokens_msg.into()];
 
     Ok(Response::new()
         .add_attributes(vec![("method", "withdraw")])
+        .add_submessages(submessages)
         .add_messages(messages))
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use astroport::asset::{Asset, AssetInfo};
+    use cosmwasm_std::{coins, testing::mock_info, to_binary, Addr, Coin, Uint128};
+    use injective_cosmwasm::MarketId;
+    use pyth_sdk_cw::{testing::MockPyth, Price, PriceFeed, PriceIdentifier};
+
+    use crate::{
+        contract::execute,
+        msg::{Cw20HookMsg, ExecuteMsg},
+        state::{BasketAsset, Config, BASKET, CONFIG},
+        tests::{
+            setup_test, ATOMUSDT_MARKET_ID, INJUSDT_MARKET_ID, LP_TOKEN_ADDR, PRICE_ID_ATOM,
+            PRICE_ID_INJ, PYTH_CONTRACT_ADDR, USDT,
+        },
+    };
+
+    #[test]
+    fn withdraw() {
+        let current_unix_time = 10_000_000;
+        let mut mock_pyth = MockPyth::new(Duration::from_secs(60), Coin::new(1, "foo"), &[]);
+        let price_feed_inj = PriceFeed::new(
+            PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+            Price {
+                price: 900000000,
+                conf: 10,
+                expo: -8,
+                publish_time: current_unix_time,
+            },
+            Price {
+                price: 800000000,
+                conf: 20,
+                expo: -8,
+                publish_time: current_unix_time,
+            },
+        );
+        let price_feed_atom = PriceFeed::new(
+            PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+            Price {
+                price: 1100000000,
+                conf: 20,
+                expo: -8,
+                publish_time: current_unix_time,
+            },
+            Price {
+                price: 1100000000,
+                conf: 20,
+                expo: -8,
+                publish_time: current_unix_time,
+            },
+        );
+
+        mock_pyth.add_feed(price_feed_inj);
+        mock_pyth.add_feed(price_feed_atom);
+        let (mut deps, env) = setup_test(&mock_pyth, current_unix_time);
+
+        let mock_address = Addr::unchecked(LP_TOKEN_ADDR.to_owned());
+
+        BASKET
+            .save(
+                &mut deps.storage,
+                &crate::state::Basket {
+                    assets: vec![
+                        BasketAsset {
+                            asset: Asset {
+                                info: {
+                                    AssetInfo::NativeToken {
+                                        denom: String::from("inj"),
+                                    }
+                                },
+                                amount: Uint128::zero(),
+                            },
+                            pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_INJ).unwrap(),
+                            weight: Uint128::from(1u128),
+                            spot_market_id: MarketId::new(INJUSDT_MARKET_ID).unwrap(),
+                        },
+                        BasketAsset {
+                            asset: Asset {
+                                info: {
+                                    AssetInfo::NativeToken {
+                                        denom: String::from("atom"),
+                                    }
+                                },
+                                amount: Uint128::zero(),
+                            },
+                            pyth_price_feed: PriceIdentifier::from_hex(PRICE_ID_ATOM).unwrap(),
+                            weight: Uint128::from(1u128),
+                            spot_market_id: MarketId::new(ATOMUSDT_MARKET_ID).unwrap(),
+                        },
+                    ],
+                },
+            )
+            .unwrap();
+
+        CONFIG
+            .save(
+                &mut deps.storage,
+                &Config {
+                    lp_token: mock_address,
+                    deposit_asset: AssetInfo::NativeToken {
+                        denom: USDT.to_owned(),
+                    },
+                    pyth_contract_addr: Addr::unchecked(PYTH_CONTRACT_ADDR),
+                },
+            )
+            .unwrap();
+
+        let auth_info = mock_info(LP_TOKEN_ADDR, &coins(1, USDT.to_owned()));
+        let msg: ExecuteMsg = ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
+            sender: auth_info.sender.to_owned().into_string(),
+            amount: Uint128::new(10),
+            msg: to_binary(&Cw20HookMsg::Withdraw {}).unwrap(),
+        });
+
+        let res = execute(deps.as_mut(), env.to_owned(), auth_info, msg).unwrap();
+
+        println!("{:?}", res.messages);
+    }
 }

@@ -1,4 +1,10 @@
-./scripts/update_pyth.sh
+
+if [ $# -eq 0 ];then :;
+else
+    echo "Updating pyth"
+    ./scripts/update_pyth.sh
+fi
+
 
 CONTRACT_ADDR=$(<./scripts/contract-address)
 
@@ -28,5 +34,5 @@ TX_HASH=$(injectived tx wasm execute "$CONTRACT_ADDR" "$MSG" --from $SENDER --ga
 sleep 5
 echo $TX_HASH
 
-CONTRACT_ADDR=$(injectived query tx "$TX_HASH" -o json | jq 'last(.logs[0].events[] | .attributes[] )' -r)
-echo $CONTRACT_ADDR
+EVENTS=$(injectived query tx "$TX_HASH" -o json | jq 'last(.logs[0].events[] )' -r)
+echo $EVENTS

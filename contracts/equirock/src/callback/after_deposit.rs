@@ -23,7 +23,7 @@ pub fn after_deposit(
         acc.checked_add((c.quantity * c.price + c.fee).add(1).into())
     })?;
 
-    let leftover = deposit.checked_rem(paid).unwrap_or(Uint128::zero());
+    let leftover = deposit.checked_sub(paid).unwrap_or(Uint128::zero());
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
 
