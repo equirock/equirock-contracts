@@ -1,5 +1,11 @@
 # Equirock
 
+## CLI Usage
+
+1. `echo "inj1p6zrj2074wywglg4cx65ywzck88525yf3gfheg" | tee ./scripts/contract-address`
+2. `./scripts/deposit.sh true`
+3. `./scripts/withdraw.sh true`
+
 
 ```
 Testnet
