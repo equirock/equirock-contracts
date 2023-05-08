@@ -18,7 +18,7 @@ END
 )
 
 MSG=$(printf "$UPDATE_VAA" "$data" )
-TX_HASH=$(injectived tx wasm execute "$PYTH_CONTRACT_ADDR" "$MSG" --from $SENDER --gas-prices 500000000inj --gas auto --gas-adjustment 1.3 --amount 1000000000000000000inj -o json -y | jq '.txhash' -r)
+TX_HASH=$(echo $KEYPASSWD | injectived tx wasm execute "$PYTH_CONTRACT_ADDR" "$MSG" --from $SENDER --gas-prices 500000000inj --gas auto --gas-adjustment 1.3 --amount 1000000000000000000inj -o json -y | jq '.txhash' -r)
 
 echo $TX_HASH
 

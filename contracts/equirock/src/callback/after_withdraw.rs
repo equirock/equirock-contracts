@@ -18,7 +18,7 @@ pub fn after_withdraw(
         .to_owned()
         .into_iter()
         .try_fold(Uint128::zero(), |acc, c| {
-            acc.checked_add((c.quantity * c.price - c.fee).add(1).into())
+            acc.checked_add((c.quantity * c.price - c.fee).sub(1).into())
         })?;
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];

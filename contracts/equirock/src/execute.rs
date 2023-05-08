@@ -141,7 +141,7 @@ pub fn deposit(
     //     Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
 
     let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
-    let slippage = Decimal::from_ratio(5u128, 100u128).checked_add(Decimal::one())?;
+    let slippage = Decimal::from_ratio(15u128, 100u128).checked_add(Decimal::one())?;
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
     let injective_querier = InjectiveQuerier::new(&deps.querier);
 

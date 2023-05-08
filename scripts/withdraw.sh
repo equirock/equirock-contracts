@@ -2,6 +2,8 @@ if [ $# -eq 0 ];then :;
 else
     echo "Updating pyth"
     ./scripts/update_pyth.sh
+
+    sleep 5
 fi
 
 SENDER=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
@@ -33,7 +35,7 @@ END
 
 MSG=$(printf "$DEPOSIT_MSG" "$CONTRACT_ADDR" "$LP_BALANCE" "$SEND_MSG_B64")
 
-TX_HASH=$(injectived tx wasm execute "$LP_CONTRACT_ADDR" "$MSG" --from $SENDER --gas-prices 500000000inj --gas auto --gas-adjustment 1.3 -o json -y | jq '.txhash' -r)
+TX_HASH=$(echo $KEYPASSWD | injectived tx wasm execute "$LP_CONTRACT_ADDR" "$MSG" --from $SENDER --gas-prices 500000000inj --gas auto --gas-adjustment 1.3 -o json -y | jq '.txhash' -r)
 sleep 5
 echo $TX_HASH
 
