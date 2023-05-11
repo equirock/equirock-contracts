@@ -10,7 +10,7 @@ fi
 
 CONTRACT_ADDR=$(<./scripts/contract-address)
 
-SENDER=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
+SENDER="${SENDER:-inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck}"
 USDT="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"
 AMOUNT="1000000"
 

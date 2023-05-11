@@ -10,7 +10,7 @@ fi
 
 CONTRACT_ADDR=$(<./scripts/contract-address)
 
-SENDER=inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck
+SENDER="${SENDER:-inj1e79v7eyl9yxjnmperuzzfd3w7q495na9hq4xck}"
 
 DEPOSIT_MSG=$(cat <<-END
     {
