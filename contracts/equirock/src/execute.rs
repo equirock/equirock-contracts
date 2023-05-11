@@ -140,9 +140,6 @@ pub fn deposit(
 
     let asset_ideals = get_basket_ideal_ratio(deps.as_ref(), &env)?;
 
-    // let _deposit_without_fee =
-    //     Decimal::raw(asset.amount.into()).checked_mul(Decimal::from_str("0.998")?)?;
-
     let subaccount_id = get_default_subaccount_id_for_checked_address(contract);
     let slippage = Decimal::from_ratio(5u128, 100u128).checked_add(Decimal::one())?;
     let mut submessages: Vec<SubMsg<InjectiveMsgWrapper>> = vec![];
@@ -269,79 +266,13 @@ pub fn rebalance(
                     contract,
                 )?;
 
-                println!("{:?}, {:?}", asset_ideal, ideal_quantity);
-
                 log.push(format!("order_msg {:?}", order_msg));
 
                 let order_message = SubMsg::reply_on_success(order_msg, ATOMIC_ORDER_REPLY_ID);
                 submessages.push(order_message);
             }
-
-            // // greater then ==> Buy
-            // if ideal_quantity.gt(&current_quantity) {
-            //     let diff = ideal_quantity.sub(current_quantity);
-            //     let order_msg = spot_order(
-            //         slippage,
-            //         asset_ideal.price,
-            //         diff,
-            //         &market,
-            //         decimals,
-            //         usdt_decimals,
-            //         OrderType::BuyAtomic,
-            //         &subaccount_id,
-            //         contract,
-            //     )?;
-
-            //     log.push(format!("buy order_msg {:?}", order_msg));
-
-            //     let order_message = SubMsg::reply_on_success(order_msg, ATOMIC_ORDER_REPLY_ID);
-            //     submessages.push(order_message);
-            // }
-
-            println!("{:?}, {:?}", current_quantity, ideal_quantity);
         }
     }
-
-    // for asset_ideal in asset_ideals {
-    //     let market =
-    //         injective_querier.query_spot_market(&asset_ideal.basket_asset.spot_market_id)?;
-    //     if let Some(market) = market.market {
-    //         log.push(format!("{:?}", market));
-    //         let base_decimals = query_decimals(
-    //             &deps.querier,
-    //             &AssetInfo::NativeToken {
-    //                 denom: market.base_denom.to_owned(),
-    //             },
-    //         );
-    //         let quote_decimals = 6u64; // USDT
-
-    //         log.push(format!("base_decimals {:?}", base_decimals));
-    //         log.push(format!("asset_ideal {:?}", asset_ideal));
-
-    //         let order_msg = spot_order(
-    //             slippage,
-    //             asset_ideal.price,
-    //             asset_ideal.ratio.checked_mul(
-    //                 Decimal::from_atomics(asset.amount, quote_decimals as u32)
-    //                     .map_err(|e| StdError::generic_err(e.to_string()))?,
-    //                 // .checked_mul(Decimal::from_str("0.998")?)?,
-    //             )?,
-    //             &market,
-    //             base_decimals,
-    //             quote_decimals,
-    //             OrderType::BuyAtomic,
-    //             &subaccount_id,
-    //             contract,
-    //         )?;
-
-    //         log.push(format!("order_msg {:?}", order_msg));
-
-    //         let order_message = SubMsg::reply_on_success(order_msg, ATOMIC_ORDER_REPLY_ID);
-    //         submessages.push(order_message);
-    //     }
-    // }
-
-    // let basket_value_in_usdt = basket_value_usdt(&deps.querier, &env, &config, &basket)?;
 
     let after_rebalance_msg = WasmMsg::Execute {
         contract_addr: contract.to_owned().into_string(),

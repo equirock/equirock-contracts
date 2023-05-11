@@ -1,7 +1,7 @@
 use astroport::asset::AssetInfo;
 use cosmwasm_std::{
-    to_binary, CosmosMsg, Decimal, DepsMut, Env, Response, StdError, StdResult, SubMsg, Uint128,
-    WasmMsg,
+    to_binary, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, Env, Response, StdError, StdResult,
+    SubMsg, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, TokenInfoResponse};
 use injective_cosmwasm::{
@@ -115,7 +115,9 @@ pub fn withdraw(
 
     let after_withdraw_msg = WasmMsg::Execute {
         contract_addr: contract.to_owned().into_string(),
-        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterWithdraw { sender }))?,
+        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterWithdraw {
+            sender: sender.clone(),
+        }))?,
         funds: vec![],
     };
 
@@ -125,8 +127,28 @@ pub fn withdraw(
         msg: to_binary(&Cw20ExecuteMsg::Burn { amount })?,
     };
 
-    let messages: Vec<CosmosMsg<InjectiveMsgWrapper>> =
+    let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> =
         vec![after_withdraw_msg.into(), burn_lp_tokens_msg.into()];
+
+    let deposit_amount =
+        query_balance(&deps.querier, &config.deposit_asset, &env.contract.address)?;
+
+    let deposit_to_withdraw = withdraw_ratio
+        .checked_mul(Decimal::from_atomics(deposit_amount, 0u32).unwrap())?
+        .to_uint_floor();
+
+    if let AssetInfo::NativeToken { denom } = config.deposit_asset {
+        if deposit_to_withdraw.gt(&Uint128::zero()) {
+            let withdraw_deposit_coins = Coin::new(u128::from(deposit_to_withdraw), denom);
+
+            let send_message = CosmosMsg::Bank(BankMsg::Send {
+                to_address: sender.clone().into_string(),
+                amount: vec![withdraw_deposit_coins],
+            });
+
+            messages.push(send_message);
+        }
+    }
 
     Ok(Response::new()
         .add_attributes(vec![("method", "withdraw")])
