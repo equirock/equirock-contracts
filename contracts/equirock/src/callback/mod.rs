@@ -1,10 +1,11 @@
 mod after_deposit;
-
 pub use after_deposit::after_deposit;
 
 mod after_withdraw;
-
 pub use after_withdraw::after_withdraw;
+
+mod after_rebalance_sell;
+pub use after_rebalance_sell::after_rebalance_sell;
 
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError};
 use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
@@ -30,6 +31,7 @@ pub fn callback(
             basket_value,
         } => after_deposit(deps, env, deposit, sender, basket_value),
         CallbackMsg::AfterWithdraw { sender } => after_withdraw(deps, env, sender),
+        CallbackMsg::AfterRebalanceSell {} => after_rebalance_sell(deps, env),
     }
 }
 

@@ -79,37 +79,8 @@ pub fn handle_order(
         Ok(clob_cache)
     })?;
 
-    // let config = STATE.load(deps.storage)?;
-    // let contract_address = env.contract.address;
-    // let subaccount_id = config.contract_subaccount_id;
-
-    // let cache = SWAP_OPERATION_STATE.load(deps.storage)?;
-
-    // let purchased_coins = Coin::new(u128::from(quantity), config.base_denom.clone());
-    // let paid = quantity * price + fee;
-    // let leftover = cache.deposited_amount.amount - Uint128::from(u128::from(paid));
-    // let leftover_coins = Coin::new(u128::from(leftover), config.quote_denom);
-    // // we need to withdraw coins from subaccount to main account so we can transfer them back to a user
-    // let withdraw_purchased_message = create_withdraw_msg(
-    //     contract_address.clone(),
-    //     subaccount_id.clone(),
-    //     purchased_coins.clone(),
-    // );
-    // let withdraw_leftover_message =
-    //     create_withdraw_msg(contract_address, subaccount_id, leftover_coins.clone());
-
-    // let send_message = BankMsg::Send {
-    //     to_address: cache.sender_address,
-    //     amount: vec![purchased_coins, leftover_coins],
-    // };
-
-    // let response = Response::new()
-    //     .add_message(withdraw_purchased_message)
-    //     .add_message(withdraw_leftover_message)
-    //     .add_message(send_message);
-
     Ok(Response::new()
-        .add_attribute("quantity_foo_bar", quantity.to_string())
-        .add_attribute("fee_foo_bar", fee.to_string())
-        .add_attribute("price_foo_bar", price.to_string()))
+        .add_attribute("quantity", quantity.to_string())
+        .add_attribute("fee", fee.to_string())
+        .add_attribute("price", price.to_string()))
 }

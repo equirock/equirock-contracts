@@ -19,6 +19,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig {},
     Deposit { asset: Asset },
+    Rebalance {},
     Callback(CallbackMsg),
     Receive(Cw20ReceiveMsg),
 }
@@ -67,4 +68,5 @@ pub enum CallbackMsg {
     AfterWithdraw {
         sender: Addr,
     },
+    AfterRebalanceSell {},
 }

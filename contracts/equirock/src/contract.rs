@@ -11,7 +11,7 @@ use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveQueryWrapper};
 
 use crate::callback::callback;
 use crate::error::ContractError;
-use crate::execute::{deposit, update_config};
+use crate::execute::{deposit, rebalance, update_config};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::query::{config, get_basket_ideal_ratio, get_basket_value};
 use crate::receive::receive;
@@ -94,6 +94,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::UpdateConfig {} => update_config(deps, info, None, None),
         ExecuteMsg::Deposit { asset } => deposit(deps, env, info, asset),
+        ExecuteMsg::Rebalance {} => rebalance(deps, env, info),
         ExecuteMsg::Callback(msg) => callback(deps, env, info, msg),
         ExecuteMsg::Receive(msg) => receive(deps, env, info, msg),
     }
